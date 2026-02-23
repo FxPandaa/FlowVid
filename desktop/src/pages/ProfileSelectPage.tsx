@@ -8,6 +8,7 @@ import {
 } from "../stores/profileStore";
 import { useFeatureGate } from "../hooks/useFeatureGate";
 import { UpgradePrompt } from "../components/UpgradePrompt";
+import { Pencil } from "../components/Icons";
 import "./ProfileSelectPage.css";
 
 export function ProfileSelectPage() {
@@ -33,7 +34,7 @@ export function ProfileSelectPage() {
         >
           <h1 className="profile-page-title">Family Profiles</h1>
           <p className="profile-page-subtitle">
-            Upgrade to Vreamio+ to create up to 8 profiles for your household.
+            Upgrade to FlowVid+ to create up to 8 profiles for your household.
             Everyone gets their own watchlist, continue watching, and can stream
             on different devices at the same time.
           </p>
@@ -42,7 +43,7 @@ export function ProfileSelectPage() {
             onClick={() => setShowUpgrade(true)}
             style={{ marginTop: 24 }}
           >
-            Upgrade to Vreamio+
+            Upgrade to FlowVid+
           </button>
           <button
             className="profile-manage-btn"
@@ -142,7 +143,7 @@ export function ProfileSelectPage() {
           </h1>
           <p className="profile-page-subtitle">
             {mode === "create"
-              ? `Add a profile for another person watching Vreamio. You can have up to ${MAX_PROFILES}.`
+              ? `Add a profile for another person watching FlowVid. You can have up to ${MAX_PROFILES}.`
               : "Update this profile's settings."}
           </p>
 
@@ -254,7 +255,9 @@ export function ProfileSelectPage() {
                 >
                   <span>{profile.avatarIcon}</span>
                   {mode === "manage" && (
-                    <div className="profile-edit-badge">✏️</div>
+                    <div className="profile-edit-badge">
+                      <Pencil size={14} />
+                    </div>
                   )}
                 </div>
                 <span className="profile-name">{profile.name}</span>

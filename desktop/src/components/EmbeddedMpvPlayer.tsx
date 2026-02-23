@@ -14,9 +14,38 @@ import {
 } from "../services/embeddedMpvService";
 import { openSubtitlesService, type Subtitle } from "../services";
 import { useSettingsStore } from "../stores/settingsStore";
+import {
+  AlertTriangle,
+  Play,
+  Pause,
+  VolumeX,
+  Volume2,
+  Volume1,
+  Tv,
+  SkipForward,
+  Maximize,
+  Minimize,
+  X,
+  StarFilled,
+} from "./Icons";
 import "./EmbeddedMpvPlayer.css";
 
-/** Score an embedded subtitle track to determine quality/relevance. Higher = better. */
+/**
+ * Score an embedded subtitle track to determine quality/relevance.
+ * Higher = better.  A score < 0 means "do not use this track".
+ *
+ * Language logic:
+ *   • If the track matches the user's preferred language → big bonus (+1000).
+ *   • If not, but the track is English → moderate bonus (+300) as a
+ *     reasonable fallback, ONLY when the preferred language is NOT English
+ *     (i.e. the user's preferred is e.g. Italian but no Italian embedded
+ *     track exists → English is acceptable but online Italian is still
+ *     preferable, so the online loader can still beat this score).
+ *   • Unknown language ("und" / blank) → small bonus (+100) – could be
+ *     anything.
+ *   • Non-matching, non-English track → penalty (-200) – almost certainly
+ *     not useful.
+ */
 function scoreEmbeddedTrack(
   track: SubtitleTrack,
   preferredLang: string,
@@ -24,16 +53,26 @@ function scoreEmbeddedTrack(
   let score = 0;
   const lang = (track.lang || "").toLowerCase();
   const title = (track.title || "").toLowerCase();
+  const pref = preferredLang.toLowerCase();
 
-  // Language match is highest priority
-  if (lang && preferredLang && lang.includes(preferredLang.toLowerCase())) {
+  // ─── Language scoring ───────────────────────────────────────────
+  if (lang && pref && lang.includes(pref)) {
+    // Exact preferred-language match
     score += 1000;
   } else if (!lang || lang === "und") {
     // Unknown language — could be the right one
     score += 100;
+  } else if (pref !== "eng" && (lang.includes("eng") || lang.includes("en"))) {
+    // English track as fallback when user prefers another language.
+    // Score is positive so the track *can* be used, but low enough that
+    // an online subtitle in the user's preferred language will win.
+    score += 300;
+  } else {
+    // Track in a completely different language the user didn't ask for
+    score -= 200;
   }
 
-  // Penalize forced / signs-only / songs-only
+  // ─── Content-type penalties ─────────────────────────────────────
   if (title.includes("forced")) score -= 500;
   if (title.includes("sign") && !title.includes("full")) score -= 400;
   if (title.includes("song") && !title.includes("full")) score -= 300;
@@ -44,7 +83,7 @@ function scoreEmbeddedTrack(
   // Prefer tracks with proper names (well-tagged)
   if (track.title && track.title.length > 0) score += 50;
 
-  // Codec preference: text-based > bitmap-based
+  // ─── Codec preference: text-based > bitmap-based ───────────────
   if (track.codec) {
     const codec = track.codec.toLowerCase();
     if (codec.includes("srt") || codec.includes("subrip")) score += 30;
@@ -143,6 +182,7 @@ export function EmbeddedMpvPlayer({
   const isPlayingRef = useRef(false);
   const hasRestoredInitialSubtitleRef = useRef(false);
   const hasAutoSelectedEmbeddedSubRef = useRef(false);
+  const autoSelectedSubScoreRef = useRef<number | null>(null);
   const hasOpenMenuRef = useRef(false);
 
   useEffect(() => {
@@ -152,6 +192,11 @@ export function EmbeddedMpvPlayer({
   useEffect(() => {
     hasRestoredInitialSubtitleRef.current = false;
     hasAutoSelectedEmbeddedSubRef.current = false;
+    autoSelectedSubScoreRef.current = null;
+    // Reset online subtitle state so previous episode's choice doesn't block embedded auto-select
+    setActiveOnlineSubtitleId(null);
+    setOnlineSubtitles([]);
+    onlineSubtitleToMpvSidRef.current.clear();
   }, [url]);
 
   // Keep menu-open ref in sync so controls timeout can check it
@@ -307,18 +352,15 @@ export function EmbeddedMpvPlayer({
     return () => clearTimeout(timer);
   }, [state?.audioTracks, preferredAudioLang]);
 
-  // Auto-select preferred embedded subtitle whenever subtitle tracks update.
+  // Auto-select the best embedded subtitle whenever subtitle tracks update.
   // This handles late-discovered embedded tracks (MPV demuxes progressively).
-  // Only auto-selects if no subtitle (embedded or online) is currently active.
+  // Allows upgrading: if better tracks arrive later they replace the earlier pick.
+  // If no good embedded tracks exist, disables embedded subs so online addon can take over.
   useEffect(() => {
-    // Skip if we already auto-selected an embedded sub for this URL
-    if (hasAutoSelectedEmbeddedSubRef.current) return;
     // Need subtitle tracks to exist
     if (!state?.subtitleTracks?.length) return;
-    // Skip if an online subtitle is already active
+    // Skip if an online subtitle is already active (user chose online)
     if (activeOnlineSubtitleId) return;
-    // Skip if an embedded subtitle is already active (user or preference already selected one)
-    if ((state?.currentSubtitleTrack ?? 0) !== 0) return;
     // Skip if we are restoring a saved subtitle
     if (initialSubtitleId && !hasRestoredInitialSubtitleRef.current) return;
 
@@ -334,8 +376,29 @@ export function EmbeddedMpvPlayer({
       .sort((a, b) => b.score - a.score);
 
     const best = scored[0];
-    // Skip auto-select if the best track has a negative score (e.g. forced-only in wrong lang)
-    if (best.score < 0) return;
+
+    // No good embedded subtitles — disable any MPV auto-selected sub
+    // and let the online subtitle loader take over.
+    if (best.score < 0) {
+      if (!hasAutoSelectedEmbeddedSubRef.current) {
+        hasAutoSelectedEmbeddedSubRef.current = true;
+        console.log(
+          "No good embedded subtitles (best score:",
+          best.score,
+          "), disabling embedded and deferring to online",
+        );
+        embeddedMpvService.setSubtitleTrack(0).catch(() => {});
+      }
+      return;
+    }
+
+    // Only select if this is the first selection or if a higher-scored track appeared
+    if (
+      autoSelectedSubScoreRef.current !== null &&
+      best.score <= autoSelectedSubScoreRef.current
+    ) {
+      return;
+    }
 
     const targetSub = best.track;
     console.log(
@@ -343,7 +406,9 @@ export function EmbeddedMpvPlayer({
       targetSub,
       "score:",
       best.score,
+      autoSelectedSubScoreRef.current !== null ? "(upgrade)" : "(initial)",
     );
+    autoSelectedSubScoreRef.current = best.score;
     hasAutoSelectedEmbeddedSubRef.current = true;
 
     // Immediately update UI state
@@ -356,7 +421,6 @@ export function EmbeddedMpvPlayer({
     onSubtitleSelectionChange?.(`embedded:${targetSub.id}`);
   }, [
     state?.subtitleTracks,
-    state?.currentSubtitleTrack,
     activeOnlineSubtitleId,
     preferredSubtitleLang,
     initialSubtitleId,
@@ -490,48 +554,91 @@ export function EmbeddedMpvPlayer({
         if (cancelled) return;
         setOnlineSubtitles(subs);
 
-        // Auto-select best online subtitle only if no embedded sub is active
-        // Wait a moment for MPV to discover embedded tracks before deciding
+        // Auto-select best online subtitle only if no good embedded sub is active.
+        // Wait for MPV to discover embedded tracks and our auto-select to evaluate them.
+        //
+        // Score thresholds (from scoreEmbeddedTrack):
+        //   >= 1000  →  Embedded track in the user's preferred language → keep it
+        //   300-999  →  English fallback (user prefers a different language) →
+        //               an online sub in the preferred language should override
+        //   < 300    →  Unknown / weak match → online preferred language wins
         if (subs.length > 0) {
           await new Promise((r) => setTimeout(r, 3000));
           if (cancelled) return;
 
-          // Re-read current state after waiting
-          const currentState = embeddedMpvService.getState();
-          const hasActiveEmbeddedSubtitle =
-            currentState.subtitleTracks.some(
-              (track) => !track.external && track.selected && track.id !== 0,
-            ) ||
-            (currentState.currentSubtitleTrack !== 0 &&
-              !activeOnlineSubtitleId);
+          const PREFERRED_LANG_THRESHOLD = 1000;
 
-          // Also check if embedded auto-select already picked one
+          // Check if our embedded auto-select already picked a preferred-lang track
           if (
-            hasActiveEmbeddedSubtitle ||
-            hasAutoSelectedEmbeddedSubRef.current
+            hasAutoSelectedEmbeddedSubRef.current &&
+            autoSelectedSubScoreRef.current !== null &&
+            autoSelectedSubScoreRef.current >= PREFERRED_LANG_THRESHOLD
           ) {
             console.log(
-              "Embedded subtitle track already active; skipping addon subtitle autoload.",
+              "Embedded subtitle in preferred language (score:",
+              autoSelectedSubScoreRef.current,
+              "); skipping addon subtitle autoload.",
             );
             return;
           }
 
-          // Also check if there are ANY embedded (non-external) subtitle tracks
-          // — if so, the auto-select effect will handle them
+          // Re-read current state after waiting
+          const currentState = embeddedMpvService.getState();
+
+          // If embedded tracks exist but haven't been evaluated yet, wait a bit more
           const embeddedTracks = currentState.subtitleTracks.filter(
             (t) => !t.external,
           );
-          if (embeddedTracks.length > 0) {
-            console.log(
-              "Embedded subtitle tracks available; deferring to embedded auto-select.",
-            );
-            return;
+          if (
+            embeddedTracks.length > 0 &&
+            !hasAutoSelectedEmbeddedSubRef.current
+          ) {
+            // Give embedded auto-select one more second to evaluate
+            await new Promise((r) => setTimeout(r, 1500));
+            if (cancelled) return;
+
+            // Check again after extra wait
+            if (
+              hasAutoSelectedEmbeddedSubRef.current &&
+              autoSelectedSubScoreRef.current !== null &&
+              autoSelectedSubScoreRef.current >= PREFERRED_LANG_THRESHOLD
+            ) {
+              console.log(
+                "Embedded subtitle in preferred language after extended wait; skipping addon subtitle autoload.",
+              );
+              return;
+            }
           }
+
+          // At this point either:
+          // - No embedded tracks exist at all
+          // - Embedded tracks were evaluated and none matched the preferred language
+          //   (they may be English fallback or scored poorly)
+          // → Look for an online subtitle in the user's preferred language.
+          //   If one exists, use it even if we currently have an English embedded fallback.
 
           const defaultLang = subPrefs.defaultLanguage || preferredSubtitleLang;
           const defaultLangSubs = subs.filter(
             (s) => s.languageCode === defaultLang,
           );
+
+          // If the user's preferred language isn't available online either,
+          // keep whatever embedded track we already picked (even English fallback).
+          if (defaultLangSubs.length === 0) {
+            if (
+              hasAutoSelectedEmbeddedSubRef.current &&
+              autoSelectedSubScoreRef.current !== null &&
+              autoSelectedSubScoreRef.current > 0
+            ) {
+              console.log(
+                "No online subs in preferred lang; keeping embedded fallback (score:",
+                autoSelectedSubScoreRef.current,
+                ")",
+              );
+              return;
+            }
+          }
+
           const pool = defaultLangSubs.length > 0 ? defaultLangSubs : subs;
           const best = pool[0];
 
@@ -544,6 +651,13 @@ export function EmbeddedMpvPlayer({
 
           // Only autoload if we haven't selected something yet
           if (!activeOnlineSubtitleId) {
+            console.log(
+              "Auto-selecting online subtitle:",
+              chosen?.language,
+              "(embedded score was:",
+              autoSelectedSubScoreRef.current,
+              ")",
+            );
             await handleSelectOnlineSubtitle(chosen, true);
           }
         }
@@ -598,7 +712,9 @@ export function EmbeddedMpvPlayer({
         setActiveOnlineSubtitleId(subtitle.id);
         onSubtitleSelectionChange?.(subtitle.id);
       } else {
-        console.warn("mpv did not report a selected sid after sub-add");
+        console.info(
+          "No selectable sid reported after sub-add for this subtitle source",
+        );
       }
       if (!isAuto) showControlsTemporarily();
     },
@@ -831,13 +947,6 @@ export function EmbeddedMpvPlayer({
     },
     {} as Record<string, Subtitle[]>,
   );
-  // Sort online subs within each group by rating desc
-  Object.values(groupedOnlineSubs).forEach((subs) =>
-    subs.sort((a, b) => {
-      if (b.rating !== a.rating) return b.rating - a.rating;
-      return (b.downloads || 0) - (a.downloads || 0);
-    }),
-  );
 
   // Calculate progress percentage for CSS
   const progressPercent = state?.duration
@@ -848,7 +957,9 @@ export function EmbeddedMpvPlayer({
     return (
       <div className="embedded-mpv-player embedded-mpv-player--error">
         <div className="embedded-mpv-error">
-          <span className="embedded-mpv-error__icon">⚠️</span>
+          <span className="embedded-mpv-error__icon">
+            <AlertTriangle size={40} />
+          </span>
           <h3>Playback Error</h3>
           <p>{error}</p>
           <button onClick={handleClose}>Close</button>
@@ -930,7 +1041,7 @@ export function EmbeddedMpvPlayer({
               onClick={() => embeddedMpvService.togglePause()}
               title={state?.isPaused ? "Play" : "Pause"}
             >
-              {state?.isPaused ? "▶" : "⏸"}
+              {state?.isPaused ? <Play size={20} /> : <Pause size={20} />}
             </button>
 
             {/* Volume */}
@@ -939,7 +1050,11 @@ export function EmbeddedMpvPlayer({
               onClick={() => embeddedMpvService.toggleMute()}
               title={state?.muted ? "Unmute" : "Mute"}
             >
-              {state?.muted || (state?.volume ?? 100) === 0 ? "🔇" : "🔊"}
+              {state?.muted || (state?.volume ?? 100) === 0 ? (
+                <VolumeX size={20} />
+              ) : (
+                <Volume2 size={20} />
+              )}
             </button>
             <input
               type="range"
@@ -964,7 +1079,7 @@ export function EmbeddedMpvPlayer({
                 }}
                 title="Episodes"
               >
-                📺 Episodes
+                <Tv size={16} /> Episodes
               </button>
             )}
 
@@ -978,7 +1093,7 @@ export function EmbeddedMpvPlayer({
                 }}
                 title="Next Episode"
               >
-                ⏭
+                <SkipForward size={20} />
               </button>
             )}
 
@@ -993,7 +1108,9 @@ export function EmbeddedMpvPlayer({
               }}
               title="Audio Track"
             >
-              <span className="embedded-mpv-audio-icon">🔈</span>
+              <span className="embedded-mpv-audio-icon">
+                <Volume1 size={16} />
+              </span>
               <span className="embedded-mpv-audio-label">Audio</span>
             </button>
 
@@ -1024,7 +1141,7 @@ export function EmbeddedMpvPlayer({
               onClick={handleToggleFullscreen}
               title="Fullscreen"
             >
-              {isFullscreen ? "⊙" : "⛶"}
+              {isFullscreen ? <Minimize size={20} /> : <Maximize size={20} />}
             </button>
           </div>
         </div>
@@ -1046,7 +1163,7 @@ export function EmbeddedMpvPlayer({
                 className="embedded-mpv-subtitle-panel__close"
                 onClick={() => setShowSubtitleMenu(false)}
               >
-                ✕
+                <X size={14} />
               </button>
             </div>
 
@@ -1111,7 +1228,7 @@ export function EmbeddedMpvPlayer({
                             )}
                             {score > 500 && (
                               <span className="embedded-mpv-subtitle-panel__quality">
-                                ★ Best
+                                <StarFilled size={12} /> Best
                               </span>
                             )}
                           </div>
@@ -1136,7 +1253,7 @@ export function EmbeddedMpvPlayer({
                       <div className="embedded-mpv-subtitle-panel__lang-header">
                         {lang}
                       </div>
-                      {subs.slice(0, 15).map((sub) => {
+                      {subs.map((sub) => {
                         const mappedSid = onlineSubtitleToMpvSidRef.current.get(
                           sub.id,
                         );
@@ -1169,14 +1286,6 @@ export function EmbeddedMpvPlayer({
                                 {sub.foreignPartsOnly && (
                                   <span className="embedded-mpv-subtitle-panel__badge">
                                     Foreign
-                                  </span>
-                                )}
-                                <span className="embedded-mpv-subtitle-panel__downloads">
-                                  ↓ {(sub.downloads || 0).toLocaleString()}
-                                </span>
-                                {sub.rating > 0 && (
-                                  <span className="embedded-mpv-subtitle-panel__rating">
-                                    ★ {sub.rating.toFixed(1)}
                                   </span>
                                 )}
                               </div>
@@ -1276,7 +1385,7 @@ export function EmbeddedMpvPlayer({
                 className="embedded-mpv-subtitle-panel__close"
                 onClick={() => setShowAudioMenu(false)}
               >
-                ✕
+                <X size={14} />
               </button>
             </div>
 
@@ -1364,7 +1473,7 @@ export function EmbeddedMpvPlayer({
                 className="embedded-mpv-episode-close"
                 onClick={() => setShowEpisodeMenu(false)}
               >
-                ✕
+                <X size={14} />
               </button>
             </div>
             <div className="embedded-mpv-episode-list">
@@ -1390,12 +1499,12 @@ export function EmbeddedMpvPlayer({
                         <img src={ep.still} alt={ep.name} />
                       ) : (
                         <div className="embedded-mpv-episode-placeholder">
-                          📺
+                          <Tv size={28} />
                         </div>
                       )}
                       {isCurrent && (
                         <div className="embedded-mpv-episode-playing">
-                          ▶ Now Playing
+                          <Play size={14} /> Now Playing
                         </div>
                       )}
                       {ep.progress !== undefined &&

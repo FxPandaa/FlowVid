@@ -32,20 +32,52 @@ const OBSERVED_PROPERTIES = [
 
 /** High-quality MPV property overrides applied on every init. */
 const HIGH_QUALITY_PROFILE: Record<string, string> = {
-  profile: "gpu-hq",
-  "video-output-levels": "full",
+  // Use the modern high-quality preset (replaces deprecated gpu-hq)
+  profile: "high-quality",
+
+  // --- Colour accuracy (match the browser <video> pipeline) ---
+  //
+  // The browser <video> element always:
+  //  1. Expands limited-range (16-235) BT.709 video to full-range (0-255)
+  //  2. Converts BT.709 primaries → sRGB
+  //  3. Outputs gamma-encoded sRGB to the Windows compositor
+  //
+  // We replicate this by explicitly setting the display target:
+  //   target-prim=bt.709  → assume a standard BT.709/sRGB display
+  //   target-trc=srgb     → expect the display to apply sRGB gamma
+  // Together they tell MPV to perform the same YCbCr→sRGB colour path
+  // the Chromium/WebView2 video decoder uses.
+  "target-prim": "bt.709",
+  "target-trc": "srgb",
+
+  // Disable Windows colour management passthrough.
+  // target-colorspace-hint=yes hands colour decisions to the OS ICC
+  // profile (often inaccurate EDID-derived), which shifts whites and
+  // compresses contrast relative to the browser pipeline.
+  // profile:high-quality silently enables this; override it explicitly.
+  "target-colorspace-hint": "no",
+  // Same rationale for icc-profile-auto.
+  "icc-profile-auto": "no",
+
+  // NOTE: do not set the "background" property via setProperty here.
+  // Some libmpv builds expose it in a non-string format and reject
+  // string writes with "unsupported format for accessing property".
+
+  // --- Scaling ---
   scale: "ewa_lanczossharp",
   cscale: "ewa_lanczossharp",
   dscale: "mitchell",
-  "dither-depth": "auto",
   "correct-downscaling": "yes",
   "linear-downscaling": "yes",
   "sigmoid-upscaling": "yes",
+
+  // --- Dithering & debanding ---
+  "dither-depth": "auto",
   deband: "yes",
+
+  // --- HDR → SDR tone-mapping ---
+  // 'hable' preserves dark and bright detail well on SDR displays.
   "tone-mapping": "hable",
-  "tone-mapping-mode": "auto",
-  "target-colorspace-hint": "yes",
-  "icc-profile-auto": "yes",
 };
 
 export interface AudioTrack {
@@ -136,12 +168,23 @@ class EmbeddedMpvService {
 
     const mpvConfig: MpvConfig = {
       initialOptions: {
-        // Video output - use GPU for best performance
-        vo: "gpu-next",
-        // Hardware decoding
-        hwdec: "auto-safe",
-        // Full output levels prevent the "washed-out" look
+        // Video output - use classic gpu backend for maximum compatibility.
+        // Some libmpv builds show black frames with gpu-next in embedded mode.
+        vo: "gpu",
+        // Disable hw decode in embedded mode to avoid driver-specific black-frame issues.
+        // (Audio + subtitles can continue while video stays black with buggy hwdec paths.)
+        hwdec: "no",
+        // Expand limited-range (16-235) content to full-range (0-255) before
+        // writing to the HWND surface.  The Windows compositor does NOT do
+        // this expansion on its own; 'auto' usually means limited output
+        // which causes grey/raised blacks on a PC monitor expecting 0-255.
         "video-output-levels": "full",
+        // Force D3D11 GPU context and explicitly set sRGB output colour space
+        // so the D3D11 swapchain matches the sRGB pipeline used by WebView2's
+        // built-in <video> element.  Without this, 'auto' can pick a
+        // non-sRGB space (e.g. HDR) on HDR-capable displays, washing out SDR.
+        "gpu-context": "d3d11",
+        "d3d11-output-csp": "srgb",
         // Keep window open after playback ends
         "keep-open": "yes",
         // Force window to show
@@ -155,8 +198,9 @@ class EmbeddedMpvService {
         border: "no",
         // Disable mpv OSC (we provide our own React controls)
         osc: "no",
-        // Enable subtitle rendering
-        "sub-auto": "fuzzy",
+        // Subtitle settings — don't auto-select any track so our scoring logic handles it
+        sid: "no",
+        "sub-auto": "no",
         "sub-visibility": "yes",
         // Audio settings
         "audio-display": "no",
@@ -177,11 +221,11 @@ class EmbeddedMpvService {
       // (so the webview may not receive click events on the blank video area).
       try {
         await command("define-section", [
-          "vreamio_mouse",
+          "FlowVid_mouse",
           "MBTN_LEFT cycle pause\n",
           "force",
         ]);
-        await command("enable-section", ["vreamio_mouse"]);
+        await command("enable-section", ["FlowVid_mouse"]);
       } catch (error) {
         console.warn("Failed to set mpv mouse bindings:", error);
       }
@@ -384,6 +428,10 @@ class EmbeddedMpvService {
 
     console.log("Loading file in embedded MPV:", url);
     await command("loadfile", [url]);
+
+    // Explicitly request automatic video track selection.
+    // Guards against rare cases where MPV remains on vid=no after previous media.
+    await command("set", ["vid", "auto"]).catch(() => undefined);
 
     // Clear any pending track refresh timers from a previous file
     this.trackRefreshTimers.forEach(clearTimeout);
@@ -630,22 +678,64 @@ class EmbeddedMpvService {
       await this.initialize();
     }
 
+    const subtitleUrl = (url || "").trim();
+    if (!subtitleUrl) {
+      return null;
+    }
+
     try {
-      await command("sub-add", [url, select ? "select" : "auto"]);
+      // Some MPV/libmpv builds are picky about sub-add argument forms.
+      // Try the preferred call first, then fallback to simpler forms.
+      let added = false;
+      const attempts: string[][] = [
+        [subtitleUrl, select ? "select" : "auto"],
+        [subtitleUrl],
+      ];
+
+      for (const args of attempts) {
+        try {
+          await command("sub-add", args);
+          added = true;
+          break;
+        } catch {
+          // Try next form silently.
+        }
+      }
+
+      if (!added) {
+        return null;
+      }
 
       // Give mpv a moment to register the track, then refresh.
       await new Promise((r) => setTimeout(r, 250));
       await this.refreshTracks();
 
       const sidRaw = await getProperty("sid", "int64").catch(() => null);
-      const selectedId = toNumberOrNull(sidRaw);
+      let selectedId = toNumberOrNull(sidRaw);
+
+      // If MPV didn't auto-select, explicitly select the newest external track.
+      if (selectedId === null && select) {
+        const externalTracks = this.currentState.subtitleTracks.filter(
+          (track) => track.external,
+        );
+        const newest = externalTracks.sort((a, b) => b.id - a.id)[0];
+        if (newest) {
+          await this.setSubtitleTrack(newest.id);
+          selectedId = newest.id;
+        }
+      }
+
       if (selectedId !== null) {
         this.currentState.currentSubtitleTrack = selectedId;
-        await setProperty("sub-visibility", true);
+        await setProperty("sub-visibility", true).catch(() => undefined);
       }
+
       return selectedId;
     } catch (error) {
-      console.warn("Failed to add external subtitle:", error);
+      console.info(
+        "External subtitle could not be added for this source:",
+        error,
+      );
       return null;
     }
   }
@@ -760,7 +850,7 @@ class EmbeddedMpvService {
           await setProperty(key, value);
         }
       } catch (err) {
-        console.warn(`Failed to set MPV property ${key}=${value}:`, err);
+        console.info(`Skipping unsupported MPV property ${key}=${value}`);
       }
     }
     console.log("Applied high-quality MPV video profile");

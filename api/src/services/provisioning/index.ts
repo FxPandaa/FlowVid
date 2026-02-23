@@ -1,5 +1,5 @@
 /**
- * Vreamio API - Provisioning Module Index
+ * FlowVid API - Provisioning Module Index
  */
 
 export {

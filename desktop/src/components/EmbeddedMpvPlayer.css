@@ -1,18 +1,14 @@
-/**
- * Embedded MPV Player Styles
- *
- * These styles create a fullscreen video player overlay with transparent
- * background to let MPV render behind the controls.
+﻿/**
+ * Embedded MPV Player - Clean, flat design
  */
 
-/* Make the entire page transparent when MPV is active */
 body:has(.embedded-mpv-player) {
+  /* Transparent so the native MPV render surface shows through the WebView */
   background: transparent !important;
   background-color: transparent !important;
   background-image: none !important;
 }
 
-/* Hide any header/navigation when MPV player is active */
 body:has(.embedded-mpv-player) .navbar,
 body:has(.embedded-mpv-player) .header,
 body:has(.embedded-mpv-player) .sidebar,
@@ -22,11 +18,9 @@ body:has(.embedded-mpv-player) .app-header {
 
 .embedded-mpv-player {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  inset: 0;
   z-index: 9999;
+  /* Transparent so the native MPV render surface shows through the WebView */
   background: transparent;
   display: flex;
   flex-direction: column;
@@ -37,7 +31,6 @@ body:has(.embedded-mpv-player) .app-header {
   cursor: default;
 }
 
-/* Hide cursor completely when controls are hidden */
 .embedded-mpv-player:not(.embedded-mpv-player--controls-visible) {
   cursor: none !important;
 }
@@ -52,19 +45,17 @@ body:has(.embedded-mpv-player) .app-header {
   align-items: center;
 }
 
-/* Transparent area where MPV renders - clickable for pause/play */
 .embedded-mpv-player__video-area {
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  inset: 0;
+  /* MUST be transparent — MPV renders at the native layer below the WebView.
+     Any opaque background here would cover MPV's output entirely (black screen). */
   background: transparent;
   cursor: pointer;
   z-index: 1;
 }
 
-/* Loading overlay - covers entire screen until video is ready */
+/* Loading */
 .embedded-mpv-player__loading {
   position: absolute;
   inset: 0;
@@ -72,17 +63,17 @@ body:has(.embedded-mpv-player) .app-header {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 16px;
+  gap: 14px;
   color: white;
   z-index: 100;
-  background: #0a0a0f;
+  background: #06080e;
 }
 
 .embedded-mpv-player__spinner {
-  width: 48px;
-  height: 48px;
-  border: 4px solid rgba(255, 255, 255, 0.2);
-  border-top-color: #8b5cf6;
+  width: 40px;
+  height: 40px;
+  border: 3px solid rgba(255, 255, 255, 0.15);
+  border-top-color: var(--primary, #00e5ff);
   border-radius: 50%;
   animation: spin 1s linear infinite;
 }
@@ -93,56 +84,57 @@ body:has(.embedded-mpv-player) .app-header {
   }
 }
 
-/* Error display */
+/* Error */
 .embedded-mpv-error {
   text-align: center;
   color: white;
-  max-width: 400px;
-  padding: 32px;
+  max-width: 380px;
+  padding: 28px;
 }
 
 .embedded-mpv-error__icon {
-  font-size: 48px;
-  margin-bottom: 16px;
+  font-size: 40px;
+  margin-bottom: 14px;
+  opacity: 0.5;
 }
 
 .embedded-mpv-error h3 {
-  font-size: 24px;
-  margin-bottom: 12px;
+  font-size: 20px;
+  font-weight: 600;
+  margin-bottom: 10px;
 }
 
 .embedded-mpv-error p {
-  color: #a0a0a0;
-  margin-bottom: 24px;
+  color: rgba(255, 255, 255, 0.5);
+  margin-bottom: 20px;
+  font-size: 13px;
 }
 
 .embedded-mpv-error button {
-  padding: 12px 24px;
-  background: #8b5cf6;
+  padding: 10px 20px;
+  background: var(--primary, #00e5ff);
   border: none;
-  border-radius: 8px;
-  color: white;
-  font-size: 16px;
+  border-radius: 6px;
+  color: #000;
+  font-size: 14px;
+  font-weight: 600;
   cursor: pointer;
-  transition: background 0.2s;
+  transition: opacity 0.15s;
 }
 
 .embedded-mpv-error button:hover {
-  background: #7c3aed;
+  opacity: 0.85;
 }
 
 /* Controls overlay */
 .embedded-mpv-player__controls {
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  inset: 0;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
   opacity: 0;
-  transition: opacity 0.3s ease;
+  transition: opacity 0.25s ease;
   pointer-events: none;
   z-index: 10;
 }
@@ -152,24 +144,23 @@ body:has(.embedded-mpv-player) .app-header {
   pointer-events: none;
 }
 
-/* Only interactive elements within controls should capture clicks */
 .embedded-mpv-player__controls.visible .embedded-mpv-controls__top,
 .embedded-mpv-player__controls.visible .embedded-mpv-controls__bottom {
   pointer-events: auto;
 }
 
-/* Top bar with gradient */
+/* Top bar */
 .embedded-mpv-controls__top {
   display: flex;
   align-items: center;
-  gap: 16px;
-  padding: 16px 24px;
-  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.8), transparent);
+  gap: 14px;
+  padding: 14px 20px;
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.7), transparent);
 }
 
 .embedded-mpv-controls__title {
-  font-size: 18px;
-  font-weight: 600;
+  font-size: 16px;
+  font-weight: 500;
   color: white;
   margin: 0;
   overflow: hidden;
@@ -182,27 +173,27 @@ body:has(.embedded-mpv-player) .app-header {
   flex: 1;
 }
 
-/* Bottom bar with gradient */
+/* Bottom bar */
 .embedded-mpv-controls__bottom {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 24px;
-  background: linear-gradient(to top, rgba(0, 0, 0, 0.8), transparent);
+  gap: 10px;
+  padding: 20px;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.75), transparent);
 }
 
-/* Progress bar */
+/* Progress */
 .embedded-mpv-controls__progress {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
 }
 
 .embedded-mpv-controls__time {
-  font-size: 13px;
-  color: white;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.7);
   font-variant-numeric: tabular-nums;
-  min-width: 50px;
+  min-width: 48px;
 }
 
 .embedded-mpv-controls__time:last-child {
@@ -211,15 +202,15 @@ body:has(.embedded-mpv-player) .app-header {
 
 .embedded-mpv-controls__slider {
   flex: 1;
-  height: 4px;
+  height: 3px;
   -webkit-appearance: none;
   appearance: none;
   background: linear-gradient(
     to right,
-    #8b5cf6 0%,
-    #8b5cf6 var(--progress, 0%),
-    rgba(255, 255, 255, 0.3) var(--progress, 0%),
-    rgba(255, 255, 255, 0.3) 100%
+    var(--primary, #00e5ff) 0%,
+    var(--primary, #00e5ff) var(--progress, 0%),
+    rgba(255, 255, 255, 0.2) var(--progress, 0%),
+    rgba(255, 255, 255, 0.2) 100%
   );
   border-radius: 2px;
   outline: none;
@@ -228,7 +219,7 @@ body:has(.embedded-mpv-player) .app-header {
 }
 
 .embedded-mpv-controls__slider:hover {
-  height: 6px;
+  height: 5px;
 }
 
 .embedded-mpv-controls__slider::-webkit-slider-thumb {
@@ -236,62 +227,56 @@ body:has(.embedded-mpv-player) .app-header {
   appearance: none;
   width: 14px;
   height: 14px;
-  background: #8b5cf6;
+  background: white;
   border-radius: 50%;
   cursor: pointer;
-  transition: transform 0.1s;
-}
-
-.embedded-mpv-controls__slider::-webkit-slider-thumb:hover {
-  transform: scale(1.2);
 }
 
 .embedded-mpv-controls__slider::-moz-range-thumb {
   width: 14px;
   height: 14px;
-  background: #8b5cf6;
+  background: white;
   border: none;
   border-radius: 50%;
   cursor: pointer;
 }
 
-/* Control buttons row */
+/* Control buttons */
 .embedded-mpv-controls__buttons {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-/* Generic button style */
-.embedded-mpv-btn {
-  padding: 8px 12px;
-  background: transparent;
-  border: none;
-  border-radius: 6px;
-  color: white;
-  font-size: 14px;
-  cursor: pointer;
-  transition: background 0.2s;
   display: flex;
   align-items: center;
   gap: 6px;
 }
 
+.embedded-mpv-btn {
+  padding: 7px 10px;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm, 4px);
+  color: white;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.15s;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
 .embedded-mpv-btn:hover {
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.12);
 }
 
 .embedded-mpv-btn--back {
-  padding: 8px 16px;
+  padding: 7px 14px;
 }
 
-/* Volume slider */
+/* Volume */
 .embedded-mpv-controls__volume-slider {
-  width: 80px;
-  height: 4px;
+  width: 72px;
+  height: 3px;
   -webkit-appearance: none;
   appearance: none;
-  background: rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.25);
   border-radius: 2px;
   outline: none;
   cursor: pointer;
@@ -316,7 +301,7 @@ body:has(.embedded-mpv-player) .app-header {
   cursor: pointer;
 }
 
-/* Dropdown menus */
+/* Dropdowns */
 .embedded-mpv-controls__dropdown {
   position: relative;
 }
@@ -325,59 +310,59 @@ body:has(.embedded-mpv-player) .app-header {
   position: absolute;
   bottom: 100%;
   right: 0;
-  margin-bottom: 8px;
-  min-width: 200px;
-  max-height: 300px;
+  margin-bottom: 6px;
+  min-width: 190px;
+  max-height: 280px;
   overflow-y: auto;
-  background: rgba(30, 30, 30, 0.98);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  background: rgba(12, 14, 20, 0.98);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-md, 6px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
   z-index: 1000;
   pointer-events: auto;
 }
 
 .embedded-mpv-dropdown__header {
-  padding: 10px 14px;
-  font-size: 11px;
+  padding: 8px 12px;
+  font-size: 10px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  color: #888;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.4);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .embedded-mpv-dropdown__item {
   display: block;
   width: 100%;
-  padding: 10px 14px;
+  padding: 8px 12px;
   background: none;
   border: none;
   text-align: left;
-  color: white;
-  font-size: 14px;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 13px;
   cursor: pointer;
-  transition: background 0.2s;
+  transition: background 0.15s;
 }
 
 .embedded-mpv-dropdown__item:hover {
-  background: rgba(139, 92, 246, 0.3);
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .embedded-mpv-dropdown__item.selected {
-  background: rgba(139, 92, 246, 0.2);
-  color: #a78bfa;
+  background: rgba(0, 229, 255, 0.1);
+  color: var(--primary, #00e5ff);
 }
 
 .embedded-mpv-dropdown__divider {
   height: 1px;
-  background: rgba(255, 255, 255, 0.1);
-  margin: 4px 0;
+  background: rgba(255, 255, 255, 0.06);
+  margin: 2px 0;
 }
 
-/* Language group styling */
+/* Language groups */
 .embedded-mpv-dropdown__group {
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
 }
 
 .embedded-mpv-dropdown__group:last-child {
@@ -385,62 +370,62 @@ body:has(.embedded-mpv-player) .app-header {
 }
 
 .embedded-mpv-dropdown__group-header {
-  padding: 8px 14px 4px;
-  font-size: 11px;
+  padding: 6px 12px 3px;
+  font-size: 10px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  color: #8b5cf6;
-  background: rgba(139, 92, 246, 0.1);
+  color: var(--primary, #00e5ff);
+  background: rgba(0, 229, 255, 0.04);
 }
 
 .embedded-mpv-dropdown__delay {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 14px;
-  gap: 8px;
+  padding: 6px 12px;
+  gap: 6px;
 }
 
 .embedded-mpv-dropdown__delay button {
-  padding: 6px 12px;
-  background: rgba(255, 255, 255, 0.1);
+  padding: 5px 10px;
+  background: rgba(255, 255, 255, 0.08);
   border: none;
-  border-radius: 4px;
+  border-radius: var(--radius-xs, 4px);
   color: white;
-  font-size: 12px;
+  font-size: 11px;
   cursor: pointer;
-  transition: background 0.2s;
+  transition: background 0.15s;
 }
 
 .embedded-mpv-dropdown__delay button:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.15);
 }
 
 .embedded-mpv-dropdown__delay span {
-  font-size: 14px;
+  font-size: 13px;
   font-variant-numeric: tabular-nums;
   color: white;
-  min-width: 50px;
+  min-width: 48px;
   text-align: center;
 }
 
-/* Episode Menu Overlay */
+/* Episode Menu */
 .embedded-mpv-episode-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.8);
+  background: rgba(0, 0, 0, 0.6);
   z-index: 10000;
   display: flex;
   justify-content: flex-end;
 }
 
 .embedded-mpv-episode-menu {
-  width: 400px;
+  width: 380px;
   max-width: 90vw;
   height: 100%;
-  background: rgba(20, 20, 25, 0.98);
-  border-left: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(12, 14, 20, 0.98);
+  border-left: 1px solid rgba(255, 255, 255, 0.06);
   display: flex;
   flex-direction: column;
   animation: slideInRight 0.2s ease-out;
@@ -459,65 +444,65 @@ body:has(.embedded-mpv-player) .app-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 16px 20px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 14px 18px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .embedded-mpv-episode-header h3 {
   margin: 0;
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 600;
   color: white;
 }
 
 .embedded-mpv-episode-close {
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   border: none;
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.08);
   border-radius: 50%;
   color: white;
-  font-size: 16px;
+  font-size: 14px;
   cursor: pointer;
-  transition: background 0.2s;
+  transition: background 0.15s;
 }
 
 .embedded-mpv-episode-close:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.15);
 }
 
 .embedded-mpv-episode-list {
   flex: 1;
   overflow-y: auto;
-  padding: 12px;
+  padding: 10px;
 }
 
 .embedded-mpv-episode-item {
   display: flex;
-  gap: 12px;
+  gap: 10px;
   padding: 8px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm, 4px);
   cursor: pointer;
-  transition: background 0.2s;
-  margin-bottom: 8px;
+  transition: background 0.15s;
+  margin-bottom: 4px;
 }
 
 .embedded-mpv-episode-item:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.06);
 }
 
 .embedded-mpv-episode-item.current {
-  background: rgba(139, 92, 246, 0.2);
+  background: rgba(0, 229, 255, 0.1);
   cursor: default;
 }
 
 .embedded-mpv-episode-thumbnail {
   position: relative;
-  width: 140px;
-  min-width: 140px;
+  width: 130px;
+  min-width: 130px;
   aspect-ratio: 16/9;
-  background: rgba(0, 0, 0, 0.5);
-  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: var(--radius-xs, 4px);
   overflow: hidden;
 }
 
@@ -533,18 +518,18 @@ body:has(.embedded-mpv-player) .app-header {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 24px;
-  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  font-size: 20px;
+  opacity: 0.2;
 }
 
 .embedded-mpv-episode-playing {
   position: absolute;
   inset: 0;
-  background: rgba(139, 92, 246, 0.8);
+  background: rgba(0, 229, 255, 0.6);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 600;
   color: white;
 }
@@ -560,7 +545,7 @@ body:has(.embedded-mpv-player) .app-header {
 
 .embedded-mpv-episode-progress-fill {
   height: 100%;
-  background: #8b5cf6;
+  background: var(--primary, #00e5ff);
 }
 
 .embedded-mpv-episode-info {
@@ -568,105 +553,95 @@ body:has(.embedded-mpv-player) .app-header {
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: 4px;
+  gap: 3px;
   min-width: 0;
 }
 
 .embedded-mpv-episode-num {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
-  color: #8b5cf6;
+  color: var(--primary, #00e5ff);
 }
 
 .embedded-mpv-episode-title {
-  font-size: 14px;
+  font-size: 13px;
   color: white;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-/* Blur for unwatched episodes */
 .embedded-mpv-episode-thumbnail.blur img {
   filter: blur(8px);
 }
 
-/* ==========================================
-   Audio Button styling
-   ========================================== */
+/* Audio Button */
 .embedded-mpv-btn--audio {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 8px 14px;
-  border-radius: 20px;
-  transition: all 0.2s ease;
+  gap: 5px;
+  padding: 7px 12px;
+  border-radius: var(--radius-full, 20px);
 }
 
 .embedded-mpv-btn--audio-multi {
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .embedded-mpv-audio-icon {
-  font-size: 14px;
+  font-size: 13px;
 }
 
 .embedded-mpv-audio-label {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 500;
 }
 
-/* Audio panel is narrower since it has less content */
 .embedded-mpv-audio-panel {
-  width: 360px;
+  width: 340px;
 }
 
-/* ==========================================
-   CC Button with status indicator
-   ========================================== */
+/* CC Button */
 .embedded-mpv-btn--cc {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 8px 14px;
-  border-radius: 20px;
-  transition: all 0.2s ease;
+  gap: 5px;
+  padding: 7px 12px;
+  border-radius: var(--radius-full, 20px);
 }
 
 .embedded-mpv-btn--cc-active {
-  border: 1px solid rgba(139, 92, 246, 0.6);
-  background: rgba(139, 92, 246, 0.2) !important;
+  border: 1px solid rgba(0, 229, 255, 0.3);
+  background: rgba(0, 229, 255, 0.08) !important;
 }
 
 .embedded-mpv-btn--cc-active .embedded-mpv-cc-icon {
-  background: #8b5cf6;
-  color: white;
+  background: var(--primary, #00e5ff);
+  color: #000;
 }
 
 .embedded-mpv-cc-icon {
   font-weight: 700;
-  font-size: 11px;
-  padding: 3px 6px;
-  background: rgba(255, 255, 255, 0.15);
-  border-radius: 4px;
-  transition: all 0.2s ease;
+  font-size: 10px;
+  padding: 2px 5px;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: var(--radius-xs, 4px);
+  transition: all 0.15s;
 }
 
 .embedded-mpv-cc-status {
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.6);
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.5);
   font-weight: 600;
-  min-width: 24px;
+  min-width: 20px;
   text-align: center;
 }
 
 .embedded-mpv-btn--cc-active .embedded-mpv-cc-status {
-  color: #a78bfa;
+  color: var(--primary, #00e5ff);
 }
 
-/* ==========================================
-   Subtitle Panel Overlay (matches SubtitleSelector)
-   ========================================== */
+/* Subtitle Panel */
 .embedded-mpv-subtitle-overlay {
   position: fixed;
   inset: 0;
@@ -675,31 +650,29 @@ body:has(.embedded-mpv-player) .app-header {
 
 .embedded-mpv-subtitle-panel {
   position: fixed;
-  bottom: 100px;
-  right: 32px;
-  width: 420px;
-  max-height: 70vh;
-  background: rgba(15, 15, 20, 0.95);
-  border-radius: 16px;
-  backdrop-filter: blur(40px) saturate(180%);
-  -webkit-backdrop-filter: blur(40px) saturate(180%);
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6);
+  bottom: 90px;
+  right: 28px;
+  width: 400px;
+  max-height: 68vh;
+  background: rgba(12, 14, 20, 0.98);
+  border-radius: var(--radius-lg, 12px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
   border: 1px solid rgba(255, 255, 255, 0.06);
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  animation: mpvSubPanelIn 0.25s ease-out;
+  animation: mpvSubPanelIn 0.2s ease-out;
   pointer-events: auto;
 }
 
 @keyframes mpvSubPanelIn {
   from {
     opacity: 0;
-    transform: translateY(12px) scale(0.96);
+    transform: translateY(8px);
   }
   to {
     opacity: 1;
-    transform: translateY(0) scale(1);
+    transform: translateY(0);
   }
 }
 
@@ -707,48 +680,48 @@ body:has(.embedded-mpv-player) .app-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 20px 24px;
+  padding: 16px 20px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .embedded-mpv-subtitle-panel__header h3 {
-  font-size: 17px;
-  font-weight: 700;
+  font-size: 15px;
+  font-weight: 600;
   margin: 0;
   color: white;
-  letter-spacing: -0.02em;
 }
 
 .embedded-mpv-subtitle-panel__close {
-  width: 36px;
-  height: 36px;
+  width: 30px;
+  height: 30px;
   display: flex;
   align-items: center;
   justify-content: center;
   background: transparent;
   border: none;
   color: rgba(255, 255, 255, 0.4);
-  font-size: 18px;
+  font-size: 16px;
   cursor: pointer;
   border-radius: 50%;
-  transition: all 0.2s ease;
+  transition: all 0.15s;
 }
 
 .embedded-mpv-subtitle-panel__close:hover {
   background: rgba(255, 255, 255, 0.1);
   color: white;
-  transform: rotate(90deg);
 }
 
-/* Scrollable list */
+/* List */
 .embedded-mpv-subtitle-panel__list {
   flex: 1;
   overflow-y: auto;
-  padding: 12px;
+  padding: 10px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
 }
 
 .embedded-mpv-subtitle-panel__list::-webkit-scrollbar {
-  width: 6px;
+  width: 4px;
 }
 
 .embedded-mpv-subtitle-panel__list::-webkit-scrollbar-track {
@@ -756,26 +729,22 @@ body:has(.embedded-mpv-player) .app-header {
 }
 
 .embedded-mpv-subtitle-panel__list::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
 }
 
-.embedded-mpv-subtitle-panel__list::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.3);
-}
-
-/* Individual subtitle item */
+/* Subtitle item */
 .embedded-mpv-subtitle-panel__item {
   width: 100%;
-  padding: 14px 18px;
+  padding: 10px 14px;
   background: transparent;
   border: none;
-  border-radius: 10px;
-  color: white;
+  border-radius: var(--radius-sm, 4px);
+  color: rgba(255, 255, 255, 0.8);
   text-align: left;
   cursor: pointer;
-  transition: all 0.2s ease;
-  margin-bottom: 6px;
+  transition: background 0.15s;
+  margin-bottom: 2px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -783,88 +752,87 @@ body:has(.embedded-mpv-player) .app-header {
 }
 
 .embedded-mpv-subtitle-panel__item:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.06);
 }
 
 .embedded-mpv-subtitle-panel__item.active {
-  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%) !important;
+  background: rgba(0, 229, 255, 0.1) !important;
   color: white !important;
-  font-weight: 600;
-  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
+  font-weight: 500;
+  border: 1px solid rgba(0, 229, 255, 0.15);
 }
 
 .embedded-mpv-subtitle-panel__item.active::after {
-  content: "✓";
-  font-size: 16px;
-  font-weight: bold;
-  color: white;
+  content: "\2713";
+  font-size: 14px;
+  color: var(--primary, #00e5ff);
   margin-left: auto;
   flex-shrink: 0;
 }
 
 .embedded-mpv-subtitle-panel__item.active .embedded-mpv-subtitle-panel__meta {
-  color: rgba(255, 255, 255, 0.9);
+  color: rgba(255, 255, 255, 0.6);
 }
 
-/* Content layout inside each item */
+/* Item content */
 .embedded-mpv-subtitle-panel__info {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
   overflow: hidden;
 }
 
 .embedded-mpv-subtitle-panel__label {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 500;
 }
 
 .embedded-mpv-subtitle-panel__meta {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.5);
+  gap: 6px;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.4);
   flex-wrap: wrap;
 }
 
 /* Badges */
 .embedded-mpv-subtitle-panel__badge {
-  padding: 2px 6px;
-  background: rgba(255, 255, 255, 0.12);
-  border-radius: 4px;
-  font-size: 10px;
+  padding: 1px 5px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-xs, 4px);
+  font-size: 9px;
   font-weight: 600;
   text-transform: uppercase;
   white-space: nowrap;
-  max-width: 150px;
+  max-width: 140px;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .embedded-mpv-subtitle-panel__badge.emb {
-  background: rgba(59, 130, 246, 0.25);
+  background: rgba(59, 130, 246, 0.15);
   color: #60a5fa;
 }
 
 .embedded-mpv-subtitle-panel__badge.addon {
-  background: rgba(139, 92, 246, 0.25);
-  color: #a78bfa;
+  background: rgba(0, 229, 255, 0.12);
+  color: var(--primary, #00e5ff);
 }
 
 .embedded-mpv-subtitle-panel__badge.hi {
-  background: rgba(251, 191, 36, 0.25);
+  background: rgba(251, 191, 36, 0.15);
   color: #fbbf24;
 }
 
 .embedded-mpv-subtitle-panel__badge.codec {
-  background: rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.4);
 }
 
 .embedded-mpv-subtitle-panel__quality {
   color: #fbbf24;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 600;
 }
 
@@ -872,93 +840,89 @@ body:has(.embedded-mpv-player) .app-header {
 .embedded-mpv-subtitle-panel__rating {
   display: flex;
   align-items: center;
-  gap: 3px;
+  gap: 2px;
 }
 
 .embedded-mpv-subtitle-panel__rating {
   color: #fbbf24;
 }
 
-/* Section and language headers */
+/* Section headers */
 .embedded-mpv-subtitle-panel__section {
-  margin-bottom: 8px;
-}
-
-.embedded-mpv-subtitle-panel__section-label {
-  font-size: 12px;
-  font-weight: 700;
-  color: rgba(255, 255, 255, 0.5);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  padding: 12px 16px 4px;
-}
-
-.embedded-mpv-subtitle-panel__lang-group {
   margin-bottom: 4px;
 }
 
-.embedded-mpv-subtitle-panel__lang-header {
-  font-size: 11px;
-  font-weight: 600;
-  color: #8b5cf6;
+.embedded-mpv-subtitle-panel__section-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.35);
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  padding: 8px 16px 4px;
+  padding: 10px 14px 3px;
 }
 
-/* Loading / empty states */
+.embedded-mpv-subtitle-panel__lang-group {
+  margin-bottom: 2px;
+}
+
+.embedded-mpv-subtitle-panel__lang-header {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--primary, #00e5ff);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 6px 14px 3px;
+}
+
+/* Loading / empty */
 .embedded-mpv-subtitle-panel__loading,
 .embedded-mpv-subtitle-panel__empty {
-  padding: 32px;
+  padding: 28px;
   text-align: center;
-  color: rgba(255, 255, 255, 0.4);
-  font-size: 14px;
+  color: rgba(255, 255, 255, 0.3);
+  font-size: 13px;
 }
 
 /* Timing controls */
 .embedded-mpv-subtitle-panel__timing {
   border-top: 1px solid rgba(255, 255, 255, 0.06);
-  padding: 16px 20px;
-  background: rgba(0, 0, 0, 0.3);
+  padding: 14px 18px;
+  background: rgba(0, 0, 0, 0.2);
 }
 
 .embedded-mpv-subtitle-panel__timing-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 12px;
-  font-size: 13px;
-  color: rgba(255, 255, 255, 0.7);
+  margin-bottom: 10px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
 }
 
 .embedded-mpv-subtitle-panel__timing-value {
   font-weight: 600;
-  color: #8b5cf6;
+  color: var(--primary, #00e5ff);
   font-family: monospace;
 }
 
 .embedded-mpv-subtitle-panel__timing-controls {
   display: flex;
-  gap: 8px;
+  gap: 6px;
 }
 
 .embedded-mpv-subtitle-panel__timing-btn {
   flex: 1;
-  padding: 8px 12px;
-  background: rgba(255, 255, 255, 0.1);
+  padding: 6px 10px;
+  background: rgba(255, 255, 255, 0.08);
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius-xs, 4px);
   color: white;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 500;
   cursor: pointer;
-  transition: background 0.2s ease;
+  transition: background 0.15s;
 }
 
 .embedded-mpv-subtitle-panel__timing-btn:hover {
-  background: rgba(255, 255, 255, 0.2);
-}
-
-.embedded-mpv-subtitle-panel__timing-btn:active {
-  transform: scale(0.98);
+  background: rgba(255, 255, 255, 0.15);
 }

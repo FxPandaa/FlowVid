@@ -1,5 +1,5 @@
 /**
- * Vreamio API - Billing Module Index
+ * FlowVid API - Billing Module Index
  */
 
 export * from "./types.js";

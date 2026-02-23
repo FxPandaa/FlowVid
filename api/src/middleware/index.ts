@@ -1,5 +1,5 @@
 /**
- * Vreamio API - Middleware Index
+ * FlowVid API - Middleware Index
  * Re-export all middleware for convenient importing
  */
 

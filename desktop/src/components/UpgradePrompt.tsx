@@ -1,7 +1,7 @@
 /**
- * Vreamio Upgrade Prompt
+ * FlowVid Upgrade Prompt
  *
- * A reusable modal shown when free users try to access Vreamio+ features.
+ * A reusable modal shown when free users try to access FlowVid+ features.
  * Shows feature-specific messaging and a Subscribe CTA.
  */
 
@@ -14,6 +14,7 @@ import {
 } from "../hooks/useFeatureGate";
 import { useAuthStore } from "../stores/authStore";
 import { useSubscriptionStore } from "../stores/subscriptionStore";
+import { X, Users, Search, Bolt } from "./Icons";
 import "./UpgradePrompt.css";
 
 interface UpgradePromptProps {
@@ -23,10 +24,10 @@ interface UpgradePromptProps {
   onClose: () => void;
 }
 
-const FEATURE_ICONS: Record<GatedFeature, string> = {
-  family_profiles: "👨‍👩‍👧‍👦",
-  native_scrapers: "🔍",
-  managed_torbox: "⚡",
+const FEATURE_ICONS: Record<GatedFeature, React.ReactNode> = {
+  family_profiles: <Users size={20} />,
+  native_scrapers: <Search size={20} />,
+  managed_torbox: <Bolt size={20} />,
 };
 
 export const UpgradePrompt: React.FC<UpgradePromptProps> = ({
@@ -69,17 +70,17 @@ export const UpgradePrompt: React.FC<UpgradePromptProps> = ({
     <div className="upgrade-overlay" onClick={onClose}>
       <div className="upgrade-modal" onClick={(e) => e.stopPropagation()}>
         <button className="upgrade-close" onClick={onClose}>
-          ✕
+          <X size={16} />
         </button>
 
         <div className="upgrade-header">
-          <span className="upgrade-badge">Vreamio+</span>
+          <span className="upgrade-badge">FlowVid+</span>
           <h2 className="upgrade-title">Unlock {featureInfo.title}</h2>
           <p className="upgrade-description">{featureInfo.description}</p>
         </div>
 
         <div className="upgrade-features">
-          <h3 className="upgrade-features-title">Everything in Vreamio+</h3>
+          <h3 className="upgrade-features-title">Everything in FlowVid+</h3>
           {allFeatures.map((f) => (
             <div
               key={f.key}
@@ -102,7 +103,7 @@ export const UpgradePrompt: React.FC<UpgradePromptProps> = ({
             onClick={handleSubscribe}
             disabled={checkoutLoading}
           >
-            {checkoutLoading ? "Loading..." : "Subscribe to Vreamio+"}
+            {checkoutLoading ? "Loading..." : "Subscribe to FlowVid+"}
           </button>
           <button className="upgrade-dismiss-btn" onClick={onClose}>
             Maybe later

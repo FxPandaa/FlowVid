@@ -1,5 +1,5 @@
 /**
- * Vreamio API - Main Application Entry Point
+ * FlowVid API - Main Application Entry Point
  *
  * A lightweight account sync backend for cross-platform streaming
  * Serves Windows, macOS, Linux, Android, iOS, Android TV, and Apple TV
@@ -47,7 +47,7 @@ const app: Express = express();
  * Initialize the application
  */
 async function initialize(): Promise<void> {
-  console.log("🚀 Starting Vreamio API...");
+  console.log("🚀 Starting FlowVid API...");
   console.log(`📍 Environment: ${config.server.nodeEnv}`);
 
   // Validate configuration
@@ -142,7 +142,7 @@ app.get("/health", (_req: Request, res: Response) => {
 // API info
 app.get("/", (_req: Request, res: Response) => {
   res.json({
-    name: "Vreamio API",
+    name: "FlowVid API",
     version: "1.0.0",
     description: "Account sync backend for cross-platform streaming",
     endpoints: {
@@ -210,7 +210,7 @@ async function startServer(): Promise<void> {
     const server = app.listen(config.server.port, () => {
       console.log(`
 ╔════════════════════════════════════════════════════════════════╗
-║                    🎬 VREAMIO API v1.0.0                       ║
+║                    🎬 FlowVid API v1.0.0                       ║
 ╠════════════════════════════════════════════════════════════════╣
 ║  Server running at: http://localhost:${config.server.port.toString().padEnd(25)}║
 ║  Environment: ${config.server.nodeEnv.padEnd(43)}║

@@ -1,5 +1,5 @@
 /**
- * Vreamio API - TorBox Vendor API Types
+ * FlowVid API - TorBox Vendor API Types
  * Types for the TorBox Vendors API (https://api.torbox.app/v1/api/vendors)
  */
 

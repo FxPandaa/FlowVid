@@ -1,5 +1,5 @@
 /**
- * Vreamio API - Sync Routes
+ * FlowVid API - Sync Routes
  * Full cross-device synchronization for library, history, collections, and settings
  *
  * All endpoints accept an optional `profileId` (query param for GET, body for POST).

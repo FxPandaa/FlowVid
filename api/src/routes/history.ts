@@ -1,5 +1,5 @@
 /**
- * Vreamio API - Watch History Routes
+ * FlowVid API - Watch History Routes
  * Track viewing progress across all platforms
  */
 

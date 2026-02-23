@@ -1,5 +1,5 @@
 /**
- * Vreamio API - Services Index
+ * FlowVid API - Services Index
  * Export all service modules
  */
 

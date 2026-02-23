@@ -1,5 +1,5 @@
 /**
- * Vreamio API - Profile Routes
+ * FlowVid API - Profile Routes
  * CRUD operations for user profiles (up to 8 per account)
  *
  * Profiles let household members share one subscription while keeping
@@ -81,11 +81,11 @@ router.post(
       throw new BadRequestError("Profile name is required");
     }
 
-    // Profiles are a Vreamio+ feature — check subscription
+    // Profiles are a FlowVid+ feature — check subscription
     const subStatus = getSubscriptionStatus(req.userId!);
     if (subStatus.status !== SubscriptionStatus.ACTIVE) {
       throw new ForbiddenError(
-        "Profiles require an active Vreamio+ subscription",
+        "Profiles require an active FlowVid+ subscription",
       );
     }
 
@@ -108,7 +108,7 @@ router.post(
       id,
       req.userId,
       name.trim(),
-      avatarColor || "#6366f1",
+      avatarColor || "#00E5FF",
       avatarIcon || "😊",
       isKid ? 1 : 0,
     );
@@ -118,7 +118,7 @@ router.post(
       profile: {
         id,
         name: name.trim(),
-        avatarColor: avatarColor || "#6366f1",
+        avatarColor: avatarColor || "#00E5FF",
         avatarIcon: avatarIcon || "😊",
         isKid: !!isKid,
         createdAt: new Date().toISOString(),
@@ -290,7 +290,7 @@ router.post(
           p.id,
           req.userId,
           p.name,
-          p.avatarColor || "#6366f1",
+          p.avatarColor || "#00E5FF",
           p.avatarIcon || "😊",
           p.isKid ? 1 : 0,
           p.createdAt || new Date().toISOString(),

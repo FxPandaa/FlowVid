@@ -1,5 +1,6 @@
+﻿/* -- Media Row -- clean section layout -- */
 .media-row {
-  padding: 24px 0;
+  padding: 16px 0;
   overflow: visible;
 }
 
@@ -8,47 +9,50 @@
   align-items: center;
   justify-content: space-between;
   padding: 0 48px;
-  margin-bottom: 16px;
+  margin-bottom: 10px;
 }
 
 .media-row-title {
-  font-size: 20px;
+  font-size: 16px;
   font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
 }
 
 .media-row-nav {
   display: flex;
-  gap: 8px;
+  gap: 6px;
 }
 
 .nav-btn {
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border-color);
-  color: var(--text-primary);
-  font-size: 16px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--text-secondary);
+  font-size: 14px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s ease;
+  transition: all var(--transition-fast);
 }
 
 .nav-btn:hover {
-  background: var(--border-color);
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-primary);
 }
 
 .media-row-items {
   display: flex;
-  gap: 16px;
+  gap: 14px;
   overflow-x: auto;
   overflow-y: visible;
-  padding: 16px 48px;
+  padding: 8px 48px;
   scroll-behavior: smooth;
   scrollbar-width: none;
-  margin: -8px 0;
+  -webkit-overflow-scrolling: touch;
 }
 
 .media-row-items::-webkit-scrollbar {
@@ -64,29 +68,23 @@
 .skeleton-poster {
   aspect-ratio: 2/3;
   border-radius: var(--radius-lg);
-  background: linear-gradient(
-    90deg,
-    var(--bg-tertiary) 25%,
-    var(--border-color) 50%,
-    var(--bg-tertiary) 75%
-  );
-  background-size: 200% 100%;
-  animation: shimmer 1.5s infinite;
+  background: rgba(255, 255, 255, 0.04);
+  animation: skeleton-pulse 1.8s ease-in-out infinite;
 }
 
 .skeleton-title {
-  height: 16px;
-  border-radius: 4px;
-  background: var(--bg-tertiary);
-  margin-top: 12px;
+  height: 14px;
+  border-radius: var(--radius-xs);
+  background: rgba(255, 255, 255, 0.04);
+  margin-top: 10px;
   width: 80%;
 }
 
 .skeleton-meta {
-  height: 12px;
-  border-radius: 4px;
-  background: var(--bg-tertiary);
-  margin-top: 8px;
+  height: 11px;
+  border-radius: var(--radius-xs);
+  background: rgba(255, 255, 255, 0.03);
+  margin-top: 6px;
   width: 50%;
 }
 
@@ -99,11 +97,7 @@
   aspect-ratio: 16/9 !important;
 }
 
-@keyframes shimmer {
-  0% {
-    background-position: -200% 0;
-  }
-  100% {
-    background-position: 200% 0;
-  }
+@keyframes skeleton-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
 }

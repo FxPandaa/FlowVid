@@ -236,7 +236,7 @@ export class AllDebridProvider implements DebridProvider {
 
   private apiKey: string;
   private baseUrl = DEBRID_CONFIGS.alldebrid.apiBaseUrl;
-  private agent = "Vreamio";
+  private agent = "FlowVid";
 
   constructor(apiKey: string) {
     this.apiKey = apiKey;

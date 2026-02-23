@@ -148,6 +148,29 @@ function normalizeEpisode(raw: CinemetaRawEpisode): Episode {
 }
 
 class CinemetaService {
+  /**
+   * In-memory response cache.  Keyed by the endpoint path, stores the
+   * already-normalised result together with a timestamp so we can serve
+   * stale-while-revalidate for a smooth UX.
+   */
+  private cache = new Map<string, { data: unknown; ts: number }>();
+  private static CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+  private getCached<T>(key: string): T | undefined {
+    const entry = this.cache.get(key);
+    if (!entry) return undefined;
+    // Still fresh
+    if (Date.now() - entry.ts < CinemetaService.CACHE_TTL) {
+      return entry.data as T;
+    }
+    // Stale – return it anyway (caller can refresh in background)
+    return entry.data as T;
+  }
+
+  private setCache(key: string, data: unknown): void {
+    this.cache.set(key, { data, ts: Date.now() });
+  }
+
   private async request<T>(endpoint: string): Promise<T> {
     const url = `${CINEMETA_BASE_URL}${endpoint}`;
 
@@ -185,19 +208,25 @@ class CinemetaService {
     return this.getDetails("series", imdbId) as Promise<SeriesDetails>;
   }
 
-  // Get catalog (popular/top)
+  // Get catalog (popular/top) — cached
   async getCatalog(
     type: "movie" | "series",
     catalog: "top" | "year" | "imdbRating" = "top",
     skip: number = 0,
   ): Promise<MediaItem[]> {
+    const cacheKey = `catalog:${type}:${catalog}:${skip}`;
+    const cached = this.getCached<MediaItem[]>(cacheKey);
+    if (cached) return cached;
+
     try {
       const data = await this.request<CatalogResponse>(
         `/catalog/${type}/${catalog}/skip=${skip}.json`,
       );
-      return (data.metas || []).map((meta) =>
+      const items = (data.metas || []).map((meta) =>
         normalizeMediaItem({ ...meta, type }),
       );
+      this.setCache(cacheKey, items);
+      return items;
     } catch {
       return [];
     }

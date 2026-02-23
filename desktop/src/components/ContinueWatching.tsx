@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { WatchHistoryItem, useLibraryStore } from "../stores/libraryStore";
 import { useValidatedImage } from "../utils/useValidatedImage";
+import { Film, Tv, Play, X } from "./Icons";
 import "./ContinueWatching.css";
 
 interface ContinueWatchingProps {
@@ -93,12 +94,22 @@ function ContinueWatchingCard({ item }: { item: WatchHistoryItem }) {
             />
           ) : (
             <div className="continue-card-placeholder">
-              {item.type === "movie" ? "🎬" : "📺"}
+              {item.type === "movie" ? <Film size={28} /> : <Tv size={28} />}
             </div>
           )}
           <div className="continue-card-overlay">
-            <span className="play-button">▶</span>
+            <span className="play-button">
+              <Play size={20} />
+            </span>
           </div>
+          {item.type === "series" && item.season && item.episode && (
+            <span className="continue-card-season-tag">
+              S{item.season}E{item.episode}
+            </span>
+          )}
+          <span className="continue-card-percent">
+            {Math.round(item.progress)}%
+          </span>
           <div className="continue-progress">
             <div
               className="continue-progress-fill"
@@ -110,7 +121,7 @@ function ContinueWatchingCard({ item }: { item: WatchHistoryItem }) {
             onClick={handleDeleteClick}
             title="Remove from Continue Watching"
           >
-            ✕
+            <X size={14} />
           </button>
         </div>
         <div className="continue-card-info">

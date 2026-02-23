@@ -4,12 +4,30 @@ import { cinemetaService, MediaItem } from "../services";
 import { useLibraryStore } from "../stores";
 import "./HomePage.css";
 
+/**
+ * Module-level data cache so navigating away and back
+ * doesn't flash a skeleton / re-fetch everything.
+ */
+let _cachedPopularMovies: MediaItem[] = [];
+let _cachedPopularSeries: MediaItem[] = [];
+let _cachedTopRatedMovies: MediaItem[] = [];
+let _cachedTopRatedSeries: MediaItem[] = [];
+
 export function HomePage() {
-  const [isLoading, setIsLoading] = useState(true);
-  const [popularMovies, setPopularMovies] = useState<MediaItem[]>([]);
-  const [popularSeries, setPopularSeries] = useState<MediaItem[]>([]);
-  const [topRatedMovies, setTopRatedMovies] = useState<MediaItem[]>([]);
-  const [topRatedSeries, setTopRatedSeries] = useState<MediaItem[]>([]);
+  const [popularMovies, setPopularMovies] =
+    useState<MediaItem[]>(_cachedPopularMovies);
+  const [popularSeries, setPopularSeries] =
+    useState<MediaItem[]>(_cachedPopularSeries);
+  const [topRatedMovies, setTopRatedMovies] = useState<MediaItem[]>(
+    _cachedTopRatedMovies,
+  );
+  const [topRatedSeries, setTopRatedSeries] = useState<MediaItem[]>(
+    _cachedTopRatedSeries,
+  );
+
+  // Only show loading on very first load (no cached data)
+  const hasCachedData = _cachedPopularMovies.length > 0;
+  const [isLoading, setIsLoading] = useState(!hasCachedData);
 
   const { watchHistory } = useLibraryStore();
 
@@ -31,7 +49,7 @@ export function HomePage() {
 
   const loadContent = async () => {
     try {
-      setIsLoading(true);
+      if (!hasCachedData) setIsLoading(true);
 
       const [
         popularMoviesData,
@@ -44,6 +62,12 @@ export function HomePage() {
         cinemetaService.getTopRatedMovies(),
         cinemetaService.getTopRatedSeries(),
       ]);
+
+      // Persist to module-level cache
+      _cachedPopularMovies = popularMoviesData;
+      _cachedPopularSeries = popularSeriesData;
+      _cachedTopRatedMovies = topRatedMoviesData;
+      _cachedTopRatedSeries = topRatedSeriesData;
 
       setPopularMovies(popularMoviesData);
       setPopularSeries(popularSeriesData);

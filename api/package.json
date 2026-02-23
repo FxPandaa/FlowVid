@@ -1,7 +1,7 @@
 {
-  "name": "vreamio-api",
+  "name": "FlowVid-api",
   "version": "1.0.0",
-  "description": "Vreamio Backend API - Cross-platform streaming service",
+  "description": "FlowVid Backend API - Cross-platform streaming service",
   "main": "dist/index.js",
   "type": "module",
   "scripts": {
@@ -16,7 +16,7 @@
     "debrid",
     "media"
   ],
-  "author": "Vreamio",
+  "author": "FlowVid",
   "license": "MIT",
   "dependencies": {
     "axios": "^1.7.9",

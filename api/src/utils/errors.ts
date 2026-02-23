@@ -1,5 +1,5 @@
 /**
- * Vreamio API - Error Handling Utilities
+ * FlowVid API - Error Handling Utilities
  * Custom error classes for the account sync backend
  */
 

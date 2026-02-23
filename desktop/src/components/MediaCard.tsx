@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { MediaItem } from "../services/metadata/cinemeta";
 import { useValidatedImage } from "../utils/useValidatedImage";
+import { Film, Tv, Play, StarFilled } from "./Icons";
 import "./MediaCard.css";
 
 interface MediaCardProps {
@@ -46,7 +47,9 @@ export function MediaCard({
             />
           ) : (
             <div className="media-card-placeholder">
-              <span>{item.type === "movie" ? "🎬" : "📺"}</span>
+              <span>
+                {item.type === "movie" ? <Film size={28} /> : <Tv size={28} />}
+              </span>
             </div>
           )}
 
@@ -68,12 +71,16 @@ export function MediaCard({
           )}
 
           <div className="media-card-overlay">
-            <button className="play-btn">▶</button>
+            <button className="play-btn">
+              <Play size={20} />
+            </button>
           </div>
 
           {showRating && item.rating > 0 && (
             <div className="media-card-rating">
-              <span className="star">★</span>
+              <span className="star">
+                <StarFilled size={12} />
+              </span>
               <span>{item.rating.toFixed(1)}</span>
             </div>
           )}
@@ -102,17 +109,23 @@ export function MediaCard({
           />
         ) : (
           <div className="media-card-placeholder">
-            <span>{item.type === "movie" ? "🎬" : "📺"}</span>
+            <span>
+              {item.type === "movie" ? <Film size={28} /> : <Tv size={28} />}
+            </span>
           </div>
         )}
 
         <div className="media-card-overlay">
-          <button className="play-btn">▶</button>
+          <button className="play-btn">
+            <Play size={20} />
+          </button>
         </div>
 
         {showRating && item.rating > 0 && (
           <div className="media-card-rating">
-            <span className="star">★</span>
+            <span className="star">
+              <StarFilled size={12} />
+            </span>
             <span>{item.rating.toFixed(1)}</span>
           </div>
         )}

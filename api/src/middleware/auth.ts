@@ -1,5 +1,5 @@
 /**
- * Vreamio API - Authentication Middleware
+ * FlowVid API - Authentication Middleware
  * JWT verification and request authentication
  */
 

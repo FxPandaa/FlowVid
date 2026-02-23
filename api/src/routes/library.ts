@@ -1,5 +1,5 @@
 /**
- * Vreamio API - Library Routes
+ * FlowVid API - Library Routes
  * User's watchlist/favorites management
  */
 

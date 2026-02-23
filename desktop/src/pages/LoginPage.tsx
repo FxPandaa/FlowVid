@@ -1,6 +1,7 @@
 import { useState, FormEvent } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuthStore } from "../stores";
+import { Play } from "../components/Icons";
 import "./LoginPage.css";
 
 export function LoginPage() {
@@ -57,8 +58,10 @@ export function LoginPage() {
 
       <div className="login-container">
         <Link to="/" className="login-logo">
-          <span className="logo-icon">▶</span>
-          <span className="logo-text">Vreamio</span>
+          <span className="logo-icon">
+            <Play size={18} />
+          </span>
+          <span className="logo-text">FlowVid</span>
         </Link>
 
         <div className="login-form-container">

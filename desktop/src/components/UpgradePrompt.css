@@ -77,7 +77,7 @@
 
 .upgrade-badge {
   display: inline-block;
-  background: linear-gradient(135deg, #6c5ce7, #a855f7);
+  background: linear-gradient(135deg, #6c5ce7, #007AFF);
   color: #fff;
   font-size: 12px;
   font-weight: 700;
@@ -169,7 +169,7 @@
 .upgrade-subscribe-btn {
   width: 100%;
   padding: 14px;
-  background: linear-gradient(135deg, #6c5ce7, #a855f7);
+  background: linear-gradient(135deg, #6c5ce7, #007AFF);
   border: none;
   border-radius: 10px;
   color: #fff;

@@ -1,5 +1,5 @@
 /**
- * Vreamio API - Database Management
+ * FlowVid API - Database Management
  * SQLite database with better-sqlite3 for synchronous, fast operations
  */
 
@@ -244,7 +244,7 @@ function createTables(database: Database.Database): void {
       id TEXT PRIMARY KEY,
       user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       name TEXT NOT NULL,
-      avatar_color TEXT NOT NULL DEFAULT '#6366f1',
+      avatar_color TEXT NOT NULL DEFAULT '#00E5FF',
       avatar_icon TEXT NOT NULL DEFAULT '😊',
       is_kid INTEGER NOT NULL DEFAULT 0,
       created_at TEXT DEFAULT (datetime('now'))

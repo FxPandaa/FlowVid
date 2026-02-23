@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { cinemetaService, MediaItem } from "../services";
 import { MediaCard } from "../components";
+import { Search, Film } from "../components/Icons";
 import "./SearchPage.css";
 
 export function SearchPage() {
@@ -88,13 +89,17 @@ export function SearchPage() {
         </div>
       ) : query ? (
         <div className="search-empty">
-          <span className="empty-icon">🔍</span>
+          <span className="empty-icon">
+            <Search size={40} />
+          </span>
           <h2>No results found</h2>
           <p>Try adjusting your search terms</p>
         </div>
       ) : (
         <div className="search-empty">
-          <span className="empty-icon">🎬</span>
+          <span className="empty-icon">
+            <Film size={40} />
+          </span>
           <h2>Start searching</h2>
           <p>Find movies and TV shows</p>
         </div>

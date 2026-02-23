@@ -1,5 +1,5 @@
 /**
- * Vreamio API - Error Handling Middleware
+ * FlowVid API - Error Handling Middleware
  * Global error handler and async wrapper
  */
 

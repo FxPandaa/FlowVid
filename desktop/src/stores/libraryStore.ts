@@ -29,6 +29,7 @@ export interface WatchHistoryItem {
   type: "movie" | "series";
   title: string;
   poster?: string;
+  backdrop?: string;
   season?: number;
   episode?: number;
   episodeTitle?: string;
@@ -484,33 +485,36 @@ export const useLibraryStore = create<LibraryState>()(
         const profileId = state.currentProfileId;
 
         try {
-          // Use the sync endpoints, scoped by profileId
-          await fetch(`${API_URL}/sync/library`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${authState.token}`,
-            },
-            body: JSON.stringify({ profileId, library: state.library }),
-          });
-
-          await fetch(`${API_URL}/sync/history`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${authState.token}`,
-            },
-            body: JSON.stringify({ profileId, history: state.watchHistory }),
-          });
-
-          await fetch(`${API_URL}/sync/collections`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${authState.token}`,
-            },
-            body: JSON.stringify({ profileId, collections: state.collections }),
-          });
+          // Fire all three sync requests in parallel — ~3× faster than sequential
+          await Promise.all([
+            fetch(`${API_URL}/sync/library`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${authState.token}`,
+              },
+              body: JSON.stringify({ profileId, library: state.library }),
+            }),
+            fetch(`${API_URL}/sync/history`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${authState.token}`,
+              },
+              body: JSON.stringify({ profileId, history: state.watchHistory }),
+            }),
+            fetch(`${API_URL}/sync/collections`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${authState.token}`,
+              },
+              body: JSON.stringify({
+                profileId,
+                collections: state.collections,
+              }),
+            }),
+          ]);
 
           set({ lastSyncAt: new Date().toISOString() });
         } catch (error) {
@@ -556,7 +560,7 @@ export const useLibraryStore = create<LibraryState>()(
       },
     }),
     {
-      name: "vreamio-library",
+      name: "FlowVid-library",
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         library: state.library,

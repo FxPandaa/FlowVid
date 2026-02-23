@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Subtitle } from "../services";
+import { X, StarFilled } from "./Icons";
 import "./SubtitleSelector.css";
 
 interface SubtitleSelectorProps {
@@ -71,7 +72,7 @@ export function SubtitleSelector({
       <div className="subtitle-header">
         <h3>Subtitles</h3>
         <button className="close-btn" onClick={() => setIsOpen(false)}>
-          ✕
+          <X size={14} />
         </button>
       </div>
 
@@ -117,7 +118,7 @@ export function SubtitleSelector({
                     </span>
                     {subtitle.rating > 0 && (
                       <span className="subtitle-rating">
-                        ★ {subtitle.rating.toFixed(1)}
+                        <StarFilled size={12} /> {subtitle.rating.toFixed(1)}
                       </span>
                     )}
                   </div>

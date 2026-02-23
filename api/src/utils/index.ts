@@ -1,5 +1,5 @@
 /**
- * Vreamio API - Utilities Index
+ * FlowVid API - Utilities Index
  * Re-export all utilities for convenient importing
  */
 

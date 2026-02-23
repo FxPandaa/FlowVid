@@ -1,6 +1,6 @@
-# Vreamio
+# FlowVid
 
-**A cross-platform streaming application** built with Tauri (desktop) and Node.js (backend). Vreamio aggregates torrent sources and streams content through debrid service HTTPS endpoints. Currently a standalone desktop app, with plans to expand to every platform including TV, mobile, and web.
+**A cross-platform streaming application** built with Tauri (desktop) and Node.js (backend). FlowVid aggregates torrent sources and streams content through debrid service HTTPS endpoints. Currently a standalone desktop app, with plans to expand to every platform including TV, mobile, and web.
 
 ---
 
@@ -23,17 +23,17 @@
 
 ## Service Overview
 
-Vreamio is currently a **standalone desktop application** (Windows, macOS, Linux) that provides a Netflix-like experience for accessing media content through debrid services. Built with Tauri, React 18, and an embedded MPV video player, Vreamio is planned to expand to every platform including TV, mobile, and web to create a full cross-platform ecosystem.
+FlowVid is currently a **standalone desktop application** (Windows, macOS, Linux) that provides a Netflix-like experience for accessing media content through debrid services. Built with Tauri, React 18, and an embedded MPV video player, FlowVid is planned to expand to every platform including TV, mobile, and web to create a full cross-platform ecosystem.
 
 **Service Type:** Streaming client with debrid service integration.
 
-The application currently operates on a **BYOD (Bring Your Own Debrid)** model where users manually supply their own debrid API key. Before the actual launch of Vreamio, we are aiming to have a whitelabel integration with TorBox to provide a seamless experience where customers can get a subscription directly in-app. This simplifies the existing method of manually entering an API key and creates an overall more seamless experience of a full ecosystem. We are also planning to have everything synced between your account so that all user data (library, watch history, preferences) is synced across all platforms.
+The application currently operates on a **BYOD (Bring Your Own Debrid)** model where users manually supply their own debrid API key. Before the actual launch of FlowVid, we are aiming to have a whitelabel integration with TorBox to provide a seamless experience where customers can get a subscription directly in-app. This simplifies the existing method of manually entering an API key and creates an overall more seamless experience of a full ecosystem. We are also planning to have everything synced between your account so that all user data (library, watch history, preferences) is synced across all platforms.
 
-**What makes Vreamio different from Stremio and similar apps:**
+**What makes FlowVid different from Stremio and similar apps:**
 
-Vreamio is a **native desktop app**, not Electron and not a web wrapper. It is built on Tauri with Rust for performance and a small footprint. The **embedded MPV player** (libmpv) supports DTS, Dolby Atmos, TrueHD, 4K HDR, Dolby Vision, and exotic codecs that browser-based players cannot handle.
+FlowVid is a **native desktop app**, not Electron and not a web wrapper. It is built on Tauri with Rust for performance and a small footprint. The **embedded MPV player** (libmpv) supports DTS, Dolby Atmos, TrueHD, 4K HDR, Dolby Vision, and exotic codecs that browser-based players cannot handle.
 
-Vreamio features a **Safety Gate architecture**, a hard-coded enforcement layer that blocks all P2P traffic. Every stream must resolve to a valid debrid HTTPS URL before playback is allowed, with no fallback to direct torrent connections under any circumstance.
+FlowVid features a **Safety Gate architecture**, a hard-coded enforcement layer that blocks all P2P traffic. Every stream must resolve to a valid debrid HTTPS URL before playback is allowed, with no fallback to direct torrent connections under any circumstance.
 
 All torrent discovery and debrid communication happens **client-side** on the user's machine. The backend server only handles user accounts and library sync, keeping it lightweight and cleanly separated from content sourcing.
 
@@ -43,7 +43,7 @@ All torrent discovery and debrid communication happens **client-side** on the us
 
 1. **Browse & Search** — Users browse curated catalog rows (Popular Movies, Popular Series, Top Rated) or search by title. Metadata is sourced from Cinemeta.
 2. **Select Content** — The details page shows full metadata (title, year, runtime, rating, genres, cast, director) and for series, a full season/episode browser.
-3. **Scrape Sources** — When a user selects content, Vreamio runs all enabled scrapers in parallel (configurable timeout, default 30s) to find available torrent sources. Each result is instantly checked against the user's debrid service for cache availability.
+3. **Scrape Sources** — When a user selects content, FlowVid runs all enabled scrapers in parallel (configurable timeout, default 30s) to find available torrent sources. Each result is instantly checked against the user's debrid service for cache availability.
 4. **Stream via Debrid** — The user picks a source (or the app auto-selects the highest-ranked cached result). The magnet is sent to the debrid API, which returns a direct HTTPS stream URL. Playback begins immediately.
 5. **Watch & Resume** — Progress is saved automatically. The Continue Watching row on the home page shows progress bars, remaining time, and restores the exact same torrent source, subtitle selection, and audio track on resume.
 
@@ -96,7 +96,7 @@ All torrent discovery and debrid communication happens **client-side** on the us
 
 ### User Profiles
 
-Vreamio supports **up to 8 user profiles** under a single account, similar to Netflix and Disney+. Each profile operates as its own independent space with a separate watchlist, continue watching progress, library, and preferences. These are not full accounts with separate logins — they are profiles under the main account holder who pays for the service. When you open Vreamio, you are greeted with a "Who's watching?" profile selection screen. You can switch profiles at any time without logging out. This means a household can share one subscription while each family member has a fully personalized experience.
+FlowVid supports **up to 8 user profiles** under a single account, similar to Netflix and Disney+. Each profile operates as its own independent space with a separate watchlist, continue watching progress, library, and preferences. These are not full accounts with separate logins — they are profiles under the main account holder who pays for the service. When you open FlowVid, you are greeted with a "Who's watching?" profile selection screen. You can switch profiles at any time without logging out. This means a household can share one subscription while each family member has a fully personalized experience.
 
 ### Library & Collections
 
@@ -135,9 +135,9 @@ Vreamio supports **up to 8 user profiles** under a single account, similar to Ne
 
 ## TorBox Integration — Current State
 
-TorBox is already fully integrated as one of Vreamio's supported debrid providers. The integration uses TorBox's full API surface including key validation, account info, magnet submission, torrent lifecycle management, instant availability checking, and link unrestriction.
+TorBox is already fully integrated as one of FlowVid's supported debrid providers. The integration uses TorBox's full API surface including key validation, account info, magnet submission, torrent lifecycle management, instant availability checking, and link unrestriction.
 
-With this partnership, we will focus on making TorBox the primary and recommended way for users to get their debrid service. Rather than presenting multiple equal options, Vreamio would guide users toward TorBox with a seamless in-app subscription flow, making it the default and most streamlined path to start watching.
+With this partnership, we will focus on making TorBox the primary and recommended way for users to get their debrid service. Rather than presenting multiple equal options, FlowVid would guide users toward TorBox with a seamless in-app subscription flow, making it the default and most streamlined path to start watching.
 
 ---
 
@@ -145,15 +145,15 @@ With this partnership, we will focus on making TorBox the primary and recommende
 
 We are seeking a **whitelabel/partner integration** with TorBox to eliminate the BYOD friction and provide a seamless, out-of-the-box streaming experience.
 
-**Current problem:** New users must separately sign up for a debrid service, obtain an API key, and paste it into Vreamio's settings before they can watch anything. This creates significant onboarding friction and drop-off.
+**Current problem:** New users must separately sign up for a debrid service, obtain an API key, and paste it into FlowVid's settings before they can watch anything. This creates significant onboarding friction and drop-off.
 
 **With whitelabel access:**
 
-- **Zero configuration for end users** — Vreamio would work with TorBox out of the box, no API key setup required.
+- **Zero configuration for end users** — FlowVid would work with TorBox out of the box, no API key setup required.
 - **Seamless first-run experience** — New users can start watching immediately after installing.
-- **In-app TorBox subscription management** — Users could sign up for or manage their TorBox subscription directly within Vreamio.
+- **In-app TorBox subscription management** — Users could sign up for or manage their TorBox subscription directly within FlowVid.
 - **Consistent performance** — A single debrid backend means we can optimize the experience specifically for TorBox's infrastructure and capabilities.
-- **Mutual growth** — Every Vreamio user becomes a potential TorBox subscriber. We drive users to TorBox; TorBox provides the infrastructure that makes Vreamio work.
+- **Mutual growth** — Every FlowVid user becomes a potential TorBox subscriber. We drive users to TorBox; TorBox provides the infrastructure that makes FlowVid work.
 
 **What we would need:**
 
@@ -164,7 +164,7 @@ We are seeking a **whitelabel/partner integration** with TorBox to eliminate the
 **What TorBox gets:**
 
 - A polished, native desktop client that showcases TorBox's capabilities.
-- A direct user acquisition channel — every Vreamio install drives TorBox subscriptions.
+- A direct user acquisition channel — every FlowVid install drives TorBox subscriptions.
 - A differentiated offering: TorBox would be the only debrid service with a dedicated, high-quality native desktop streaming client (as opposed to browser-based addons).
 
 ---
@@ -173,7 +173,7 @@ We are seeking a **whitelabel/partner integration** with TorBox to eliminate the
 
 **Target audience:** Our initial audience consists of tech-savvy media enthusiasts aged 18–40 who want a centralized, Netflix-like streaming experience without juggling multiple subscription services. These users are familiar with debrid services, value high-quality playback (4K, HDR, Dolby Vision, DTS, Atmos), and are part of communities like r/StremioAddons, r/RealDebrid, r/Addons4Kodi, and r/debridmediamanager.
 
-However, with a TorBox whitelabel partnership, we plan to target a much broader audience of **regular consumers**. By removing the technical complexity of API key management and debrid configuration, Vreamio becomes accessible to the average film and series watcher who simply wants to watch content at a more affordable price, in better quality, within a nice and simple ecosystem. The partnership makes the barrier to entry low enough that non-technical users can enjoy the same experience without needing to understand what a debrid service is.
+However, with a TorBox whitelabel partnership, we plan to target a much broader audience of **regular consumers**. By removing the technical complexity of API key management and debrid configuration, FlowVid becomes accessible to the average film and series watcher who simply wants to watch content at a more affordable price, in better quality, within a nice and simple ecosystem. The partnership makes the barrier to entry low enough that non-technical users can enjoy the same experience without needing to understand what a debrid service is.
 
 ---
 
@@ -182,12 +182,12 @@ However, with a TorBox whitelabel partnership, we plan to target a much broader 
 **Phase 1 — Community Seeding (Pre-Launch & Early Launch)**
 
 - Share on debrid-related subreddits: r/StremioAddons, r/RealDebrid, r/debridmediamanager, r/Addons4Kodi, r/TorBox.
-- Create a dedicated Vreamio Discord server to build a community around the product and provide direct support.
-- Word-of-mouth within the existing Stremio user community (Vreamio serves as an alternative).
+- Create a dedicated FlowVid Discord server to build a community around the product and provide direct support.
+- Word-of-mouth within the existing Stremio user community (FlowVid serves as an alternative).
 
 **Phase 2 — Content & Visibility**
 
-- Blog posts and guides comparing Vreamio to alternatives (Stremio, DMM, etc.) with focus on native playback, codec support, and the TorBox integration.
+- Blog posts and guides comparing FlowVid to alternatives (Stremio, DMM, etc.) with focus on native playback, codec support, and the TorBox integration.
 - SEO-optimized landing page with feature comparison tables.
 
 **Phase 3 — Scaling**
@@ -239,7 +239,7 @@ The repository is currently public to share with the TorBox team for evaluation.
 ## Architecture
 
 ```
-Vreamio/
+FlowVid/
 ├── api/          # Node.js backend
 │   └── src/
 │       ├── routes/       # Auth, library, history, metadata, sync
@@ -295,7 +295,7 @@ _Scraper configuration panel where users can toggle individual torrent scrapers 
 
 ## Disclaimer
 
-Vreamio is a media hub application that does not host, store, or distribute any content. It is a player interface that connects to user-configured addons and external debrid services. Users are solely responsible for the services they configure and the content they access. The developers are not responsible for any misuse of this application.
+FlowVid is a media hub application that does not host, store, or distribute any content. It is a player interface that connects to user-configured addons and external debrid services. Users are solely responsible for the services they configure and the content they access. The developers are not responsible for any misuse of this application.
 
 ---
 

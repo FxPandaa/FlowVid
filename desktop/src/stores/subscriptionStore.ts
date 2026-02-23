@@ -1,5 +1,5 @@
 /**
- * Vreamio Desktop - Subscription Store
+ * FlowVid Desktop - Subscription Store
  * Manages billing/subscription state with the backend API
  */
 
@@ -25,7 +25,7 @@ export type TorBoxUserStatus =
 
 export interface SubscriptionInfo {
   status: SubscriptionStatus;
-  tier: "free" | "vreamio_plus";
+  tier: "free" | "FlowVid_plus";
   plan: string;
   currentPeriodEnd: string | null;
   cancelAtPeriodEnd: boolean;

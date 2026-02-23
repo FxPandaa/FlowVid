@@ -1,54 +1,57 @@
+﻿/* -- Search Page -- clean -- */
 .search-page {
-  padding: 24px 48px;
-  min-height: calc(100vh - 72px);
+  padding: 20px 48px;
+  min-height: calc(100vh - 64px);
 }
 
 .search-header {
-  margin-bottom: 32px;
+  margin-bottom: 24px;
 }
 
 .search-header h1 {
-  font-size: 28px;
+  font-size: 22px;
   font-weight: 600;
-  margin-bottom: 16px;
+  margin-bottom: 14px;
+  color: var(--text-primary);
 }
 
 .search-header .query {
-  color: var(--accent-primary);
+  color: var(--primary);
 }
 
 .filter-tabs {
   display: flex;
-  gap: 8px;
+  gap: 6px;
 }
 
 .filter-tab {
-  padding: 8px 16px;
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border-color);
+  padding: 7px 14px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: var(--radius-md);
-  color: var(--text-secondary);
+  color: var(--text-tertiary);
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all var(--transition-fast);
 }
 
 .filter-tab:hover {
-  background: var(--border-color);
-  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-secondary);
 }
 
 .filter-tab.active {
-  background: var(--accent-primary);
-  border-color: var(--accent-primary);
-  color: white;
+  background: var(--primary);
+  border-color: transparent;
+  color: #000;
+  font-weight: 600;
 }
 
 .search-results {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 24px;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 16px;
 }
 
 .search-loading,
@@ -57,26 +60,29 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 100px 24px;
+  padding: 80px 24px;
   text-align: center;
 }
 
 .search-loading p {
-  margin-top: 16px;
-  color: var(--text-secondary);
+  margin-top: 12px;
+  color: var(--text-tertiary);
+  font-size: 13px;
 }
 
 .search-empty .empty-icon {
-  font-size: 64px;
-  margin-bottom: 24px;
-  opacity: 0.5;
+  font-size: 48px;
+  margin-bottom: 16px;
+  opacity: 0.3;
 }
 
 .search-empty h2 {
-  font-size: 24px;
-  margin-bottom: 8px;
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 6px;
 }
 
 .search-empty p {
-  color: var(--text-secondary);
+  color: var(--text-tertiary);
+  font-size: 13px;
 }

@@ -439,7 +439,7 @@ export function getProvidersByRegion(region: string): ProviderMeta[] {
  */
 export function generateProviderChecklist(): string {
   const lines: string[] = [
-    "# Vreamio Provider Implementation Checklist",
+    "# FlowVid Provider Implementation Checklist",
     "",
     "Comparison with Torrentio provider coverage.",
     "",

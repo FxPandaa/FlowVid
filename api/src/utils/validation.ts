@@ -1,5 +1,5 @@
 /**
- * Vreamio API - Request Validation with Zod
+ * FlowVid API - Request Validation with Zod
  * Simplified validation schemas for account sync backend
  */
 

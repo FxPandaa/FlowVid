@@ -1,5 +1,5 @@
 /**
- * Vreamio API - Background Provisioning Worker
+ * FlowVid API - Background Provisioning Worker
  * Periodically checks for:
  * 1. Subscriptions needing provisioning (PAID_PENDING_PROVISION)
  * 2. Users awaiting email confirmation (PROVISIONED_PENDING_CONFIRM)

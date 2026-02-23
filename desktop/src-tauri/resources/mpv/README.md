@@ -1,6 +1,6 @@
-# MPV Binaries (Bundled with Vreamio)
+# MPV Binaries (Bundled with FlowVid)
 
-MPV player is bundled with Vreamio for seamless video playback with full audio/subtitle track support.
+MPV player is bundled with FlowVid for seamless video playback with full audio/subtitle track support.
 
 ## Current Version
 

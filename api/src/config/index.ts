@@ -1,5 +1,5 @@
 /**
- * Vreamio API - Configuration Management
+ * FlowVid API - Configuration Management
  * Simplified configuration for account sync backend
  */
 
@@ -40,7 +40,7 @@ export const config = {
   jwt: {
     secret: getEnvVar(
       "JWT_SECRET",
-      "vreamio-dev-secret-change-in-production-32chars",
+      "FlowVid-dev-secret-change-in-production-32chars",
     ),
     expiresIn: getEnvVar("JWT_EXPIRES_IN", "7d"),
     refreshExpiresIn: getEnvVar("JWT_REFRESH_EXPIRES_IN", "30d"),
@@ -48,7 +48,7 @@ export const config = {
 
   // Database Configuration
   database: {
-    path: getEnvVar("DATABASE_PATH", "./data/vreamio.db"),
+    path: getEnvVar("DATABASE_PATH", "./data/FlowVid.db"),
   },
 
   // CORS Configuration
@@ -95,7 +95,7 @@ export const config = {
     vendorApiKey: getEnvVar("TORBOX_VENDOR_API_KEY", ""),
     encryptionKey: getEnvVar(
       "TORBOX_ENCRYPTION_KEY",
-      "vreamio-dev-encryption-key-change-in-prod",
+      "FlowVid-dev-encryption-key-change-in-prod",
     ),
   },
 
@@ -107,8 +107,8 @@ export const config = {
 
 // Known dev-only placeholder values that MUST be overridden in production
 const DEV_PLACEHOLDERS = [
-  "vreamio-dev-secret-change-in-production-32chars",
-  "vreamio-dev-encryption-key-change-in-prod",
+  "FlowVid-dev-secret-change-in-production-32chars",
+  "FlowVid-dev-encryption-key-change-in-prod",
 ];
 
 // Validate critical configuration on startup

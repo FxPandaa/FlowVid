@@ -1,5 +1,5 @@
 /**
- * Vreamio API - Metadata Service (Cinemeta)
+ * FlowVid API - Metadata Service (Cinemeta)
  * Provides movie/series information, posters, descriptions, episodes
  */
 

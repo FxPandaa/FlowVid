@@ -12,13 +12,26 @@ import { SUBTITLE_LANGUAGES } from "../utils/subtitleLanguages";
 import { scrapers } from "../services/scraping/scrapers";
 import { useFeatureGate } from "../hooks/useFeatureGate";
 import { UpgradePrompt } from "../components/UpgradePrompt";
+import {
+  Globe,
+  Flag,
+  X,
+  Lock,
+  Check,
+  XCircle,
+  Mail,
+  Clock,
+} from "../components/Icons";
 import "./SettingsPage.css";
 
 // In-app scrapers grouped by category
-const SCRAPER_CATEGORIES = {
-  general: { name: "General", icon: "🌐" },
-  anime: { name: "Anime", icon: "🎌" },
-} as const;
+const SCRAPER_CATEGORIES: Record<
+  string,
+  { name: string; icon: React.ReactNode }
+> = {
+  general: { name: "General", icon: <Globe size={16} /> },
+  anime: { name: "Anime", icon: <Flag size={16} /> },
+};
 
 // Font options for subtitles
 const FONT_FAMILIES = [
@@ -79,7 +92,7 @@ export function SettingsPage() {
   const { canUseNativeScrapers } = useFeatureGate();
   const { subscription } = useSubscriptionStore();
   const hasManagedTorBox =
-    subscription?.tier === "vreamio_plus" &&
+    subscription?.tier === "FlowVid_plus" &&
     subscription?.torbox?.status === "active";
 
   const handleApiKeyChange = (service: string, value: string) => {
@@ -262,7 +275,7 @@ export function SettingsPage() {
               className="modal-close"
               onClick={() => setShowDebridModal(false)}
             >
-              ✕
+              <X size={14} />
             </button>
           </div>
 
@@ -289,7 +302,7 @@ export function SettingsPage() {
 
             {selectedIsManagedTorBox ? (
               <div className="debrid-managed-note">
-                Managed by your Vreamio+ subscription — no API key setup needed.
+                Managed by your FlowVid+ subscription — no API key setup needed.
               </div>
             ) : selectedIsConfigured ? (
               <div className="debrid-configured">
@@ -702,7 +715,7 @@ export function SettingsPage() {
             <label>
               In-App Scrapers
               {!canUseNativeScrapers && (
-                <span className="vreamio-plus-badge">Vreamio+</span>
+                <span className="FlowVid-plus-badge">FlowVid+</span>
               )}
             </label>
             {canUseNativeScrapers ? (
@@ -714,7 +727,7 @@ export function SettingsPage() {
                 of {inAppScrapers.length} scrapers enabled
               </p>
             ) : (
-              <p>Unlock {inAppScrapers.length} in-app scrapers with Vreamio+</p>
+              <p>Unlock {inAppScrapers.length} in-app scrapers with FlowVid+</p>
             )}
           </div>
           <button
@@ -725,7 +738,13 @@ export function SettingsPage() {
                 : setShowScraperUpgrade(true)
             }
           >
-            {canUseNativeScrapers ? "Manage Scrapers" : "🔒 Upgrade"}
+            {canUseNativeScrapers ? (
+              "Manage Scrapers"
+            ) : (
+              <>
+                <Lock size={14} /> Upgrade
+              </>
+            )}
           </button>
         </div>
 
@@ -796,7 +815,7 @@ export function SettingsPage() {
                 className="modal-close"
                 onClick={() => setShowScraperModal(false)}
               >
-                ✕
+                <X size={14} />
               </button>
             </div>
             <div className="modal-body">
@@ -880,7 +899,7 @@ function SubscriptionSection() {
     clearError,
   } = useSubscriptionStore();
 
-  const isPaid = subscription?.tier === "vreamio_plus";
+  const isPaid = subscription?.tier === "FlowVid_plus";
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -893,7 +912,7 @@ function SubscriptionSection() {
       <section className="settings-section">
         <h2>Subscription</h2>
         <p className="section-description">
-          Log in to manage your Vreamio subscription and TorBox access.
+          Log in to manage your FlowVid subscription and TorBox access.
         </p>
       </section>
     );
@@ -929,7 +948,7 @@ function SubscriptionSection() {
       {/* Tier Badge */}
       <div className="tier-display">
         <span className={`tier-badge ${isPaid ? "tier-plus" : "tier-free"}`}>
-          {isPaid ? "Vreamio+" : "Vreamio Free"}
+          {isPaid ? "FlowVid+" : "FlowVid Free"}
         </span>
         {isPaid && subscription?.currentPeriodEnd && (
           <span className="tier-renews">
@@ -946,7 +965,7 @@ function SubscriptionSection() {
         <div className="subscription-error">
           <span>{error}</span>
           <button className="btn btn-ghost" onClick={clearError}>
-            ✕
+            <X size={14} />
           </button>
         </div>
       )}
@@ -954,35 +973,49 @@ function SubscriptionSection() {
       {/* Feature comparison */}
       <div className="tier-features">
         <div className="tier-feature">
-          <span className="tier-feature-icon">✅</span>
+          <span className="tier-feature-icon">
+            <Check size={14} />
+          </span>
           <span>Stream any movie or show</span>
         </div>
         <div className="tier-feature">
-          <span className="tier-feature-icon">✅</span>
+          <span className="tier-feature-icon">
+            <Check size={14} />
+          </span>
           <span>BYO debrid (Real-Debrid, AllDebrid, TorBox, Premiumize)</span>
         </div>
         <div className="tier-feature">
-          <span className="tier-feature-icon">✅</span>
+          <span className="tier-feature-icon">
+            <Check size={14} />
+          </span>
           <span>Torrentio addon scraper</span>
         </div>
         <div className="tier-feature">
-          <span className="tier-feature-icon">✅</span>
+          <span className="tier-feature-icon">
+            <Check size={14} />
+          </span>
           <span>Built-in player, subtitles, library & sync</span>
         </div>
         <div className={`tier-feature ${!isPaid ? "tier-feature-locked" : ""}`}>
-          <span className="tier-feature-icon">{isPaid ? "✅" : "🔒"}</span>
+          <span className="tier-feature-icon">
+            {isPaid ? <Check size={14} /> : <Lock size={14} />}
+          </span>
           <span>11 native scrapers (zero-downtime)</span>
-          {!isPaid && <span className="vreamio-plus-badge">Vreamio+</span>}
+          {!isPaid && <span className="FlowVid-plus-badge">FlowVid+</span>}
         </div>
         <div className={`tier-feature ${!isPaid ? "tier-feature-locked" : ""}`}>
-          <span className="tier-feature-icon">{isPaid ? "✅" : "🔒"}</span>
+          <span className="tier-feature-icon">
+            {isPaid ? <Check size={14} /> : <Lock size={14} />}
+          </span>
           <span>Family profiles</span>
-          {!isPaid && <span className="vreamio-plus-badge">Vreamio+</span>}
+          {!isPaid && <span className="FlowVid-plus-badge">FlowVid+</span>}
         </div>
         <div className={`tier-feature ${!isPaid ? "tier-feature-locked" : ""}`}>
-          <span className="tier-feature-icon">{isPaid ? "✅" : "🔒"}</span>
+          <span className="tier-feature-icon">
+            {isPaid ? <Check size={14} /> : <Lock size={14} />}
+          </span>
           <span>Managed TorBox (zero-setup streaming)</span>
-          {!isPaid && <span className="vreamio-plus-badge">Vreamio+</span>}
+          {!isPaid && <span className="FlowVid-plus-badge">FlowVid+</span>}
         </div>
       </div>
 
@@ -999,13 +1032,23 @@ function SubscriptionSection() {
             <div className="subscription-status-row">
               <span className="subscription-label">TorBox Status</span>
               <span className="subscription-value">
-                {subscription.torbox.status === "active"
-                  ? "✅ Connected"
-                  : subscription.torbox.status === "pending_email_confirm"
-                    ? "📧 Awaiting email confirmation"
-                    : subscription.torbox.status === "pending_provision"
-                      ? "⏳ Setting up..."
-                      : "❌ Revoked"}
+                {subscription.torbox.status === "active" ? (
+                  <>
+                    <Check size={14} /> Connected
+                  </>
+                ) : subscription.torbox.status === "pending_email_confirm" ? (
+                  <>
+                    <Mail size={14} /> Awaiting email confirmation
+                  </>
+                ) : subscription.torbox.status === "pending_provision" ? (
+                  <>
+                    <Clock size={14} /> Setting up...
+                  </>
+                ) : (
+                  <>
+                    <XCircle size={14} /> Revoked
+                  </>
+                )}
               </span>
             </div>
           )}
@@ -1022,7 +1065,7 @@ function SubscriptionSection() {
             onClick={handleCheckout}
             disabled={checkoutLoading}
           >
-            {checkoutLoading ? "Starting..." : "Upgrade to Vreamio+"}
+            {checkoutLoading ? "Starting..." : "Upgrade to FlowVid+"}
           </button>
         ) : null}
 

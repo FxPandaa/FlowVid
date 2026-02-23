@@ -1,4 +1,4 @@
-# Vreamio Desktop
+# FlowVid Desktop
 
 Tauri + React desktop application for streaming content via debrid services.
 

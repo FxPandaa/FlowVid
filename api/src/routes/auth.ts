@@ -1,5 +1,5 @@
 /**
- * Vreamio API - Authentication Routes
+ * FlowVid API - Authentication Routes
  * Handles user registration, login, and token refresh
  */
 

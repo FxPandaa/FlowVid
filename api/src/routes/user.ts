@@ -1,5 +1,5 @@
 /**
- * Vreamio API - User Routes
+ * FlowVid API - User Routes
  * Handles user profile and preferences (synced across devices)
  */
 

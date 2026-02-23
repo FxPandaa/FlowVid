@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import {
   cinemetaService,
@@ -13,6 +13,20 @@ import { useLibraryStore, useSettingsStore } from "../stores";
 import { parseStreamInfo } from "../utils/streamParser";
 import { useValidatedImage } from "../utils/useValidatedImage";
 import { useFeatureGate } from "../hooks/useFeatureGate";
+import {
+  StarFilled,
+  StarOutline,
+  Play,
+  Tv,
+  Bolt,
+  Check,
+  X,
+  DolbyVisionBadge,
+  HDR10Badge,
+  HDR10PlusBadge,
+  DolbyAtmosBadge,
+  HDRBadge,
+} from "../components/Icons";
 import "./DetailsPage.css";
 
 type ContentType = "movie" | "series";
@@ -32,6 +46,14 @@ export function DetailsPage() {
   const [instantAvailability, setInstantAvailability] = useState<
     Map<string, boolean>
   >(new Map());
+  const [selectedEpisode, setSelectedEpisode] = useState<{
+    season: number;
+    episode: number;
+    name: string;
+  } | null>(null);
+  const [showEpisodePopup, setShowEpisodePopup] = useState(false);
+
+  const torrentsRef = useRef<HTMLDivElement>(null);
 
   const {
     isInLibrary,
@@ -106,17 +128,17 @@ export function DetailsPage() {
     }
   };
 
-  const handleSearchTorrents = async () => {
+  const handleSearchTorrents = async (
+    scrollAfter = false,
+    episodeOverride?: { season: number; episode: number },
+  ) => {
     if (!details?.imdbId) return;
-
-    // Require debrid service to be configured
     if (activeDebridService === "none") {
       alert(
         "Please configure a debrid service (Real-Debrid or AllDebrid) in Settings first.",
       );
       return;
     }
-
     setIsSearchingTorrents(true);
     try {
       const results = await searchTorrents({
@@ -124,11 +146,10 @@ export function DetailsPage() {
         type: type as "movie" | "series",
         title: details.title,
         year: details.year,
+        season: episodeOverride?.season,
+        episode: episodeOverride?.episode,
       });
-
       setTorrents(results);
-
-      // Check instant availability with debrid
       if (results.length > 0) {
         try {
           const availability = await debridService.checkInstant(results);
@@ -137,6 +158,14 @@ export function DetailsPage() {
           console.error("Failed to check instant availability:", error);
         }
       }
+      if (scrollAfter && results.length > 0) {
+        setTimeout(() => {
+          torrentsRef.current?.scrollIntoView({
+            behavior: "smooth",
+            block: "start",
+          });
+        }, 100);
+      }
     } catch (error) {
       console.error("Torrent search failed:", error);
     } finally {
@@ -144,31 +173,32 @@ export function DetailsPage() {
     }
   };
 
-  // Play directly when clicking a torrent
-  const handleTorrentClick = (
+  const handleEpisodeClick = (
+    season: number,
+    episode: number,
+    name: string,
+  ) => {
+    setSelectedEpisode({ season, episode, name });
+    setTorrents([]);
+    setInstantAvailability(new Map());
+    setShowEpisodePopup(true);
+    handleSearchTorrents(false, { season, episode });
+  };
+
+  // Navigate to player with a chosen torrent
+  const handleTorrentPlay = (
     torrent: TorrentResult,
     season?: number,
     episode?: number,
   ) => {
-    handlePlay(torrent, season, episode);
-  };
-
-  const handlePlay = (
-    torrent?: TorrentResult,
-    season?: number,
-    episode?: number,
-  ) => {
     if (isMovie) {
-      navigate(`/player/${type}/${id}`, {
+      navigate(`/player/${type}/${id}`, { state: { torrent, details } });
+    } else {
+      const s = season ?? selectedEpisode?.season ?? selectedSeason;
+      const e = episode ?? selectedEpisode?.episode ?? 1;
+      navigate(`/player/${type}/${id}/${s}/${e}`, {
         state: { torrent, details },
       });
-    } else {
-      navigate(
-        `/player/${type}/${id}/${season || selectedSeason}/${episode || 1}`,
-        {
-          state: { torrent, details },
-        },
-      );
     }
   };
 
@@ -260,37 +290,62 @@ export function DetailsPage() {
         </div>
 
         <div className="details-hero-content">
-          {validLogo ? (
-            <img className="details-logo" src={validLogo} alt={details.title} />
-          ) : (
-            <h1 className="details-title">{details.title}</h1>
-          )}
+          <div className="details-heading">
+            {validLogo ? (
+              <img
+                className="details-logo"
+                src={validLogo}
+                alt={details.title}
+              />
+            ) : (
+              <h1 className="details-title">{details.title}</h1>
+            )}
+          </div>
 
           <div className="details-meta">
             <span className="meta-item">{details.year}</span>
             {details.rating > 0 && (
               <span className="meta-item">
-                <span className="star">★</span> {details.rating.toFixed(1)}
+                <span className="star">
+                  <StarFilled size={14} />
+                </span>{" "}
+                {details.rating.toFixed(1)}
               </span>
             )}
-            {isMovie && (details as MovieDetails).runtime && (
-              <span className="meta-item">
-                {(details as MovieDetails).runtime} min
-              </span>
-            )}
+            {isMovie &&
+              (details as MovieDetails).runtime &&
+              (() => {
+                const totalMins = parseInt(
+                  (details as MovieDetails).runtime!,
+                  10,
+                );
+                if (isNaN(totalMins)) return null;
+                const h = Math.floor(totalMins / 60);
+                const m = totalMins % 60;
+                const label = [h > 0 ? `${h}h` : "", m > 0 ? `${m}m` : ""]
+                  .filter(Boolean)
+                  .join(" ");
+                return <span className="meta-item">{label}</span>;
+              })()}
             {!isMovie && seriesDetails.numberOfSeasons && (
               <span className="meta-item">
                 {seriesDetails.numberOfSeasons} Season
                 {seriesDetails.numberOfSeasons > 1 ? "s" : ""}
               </span>
             )}
+            {details.genres &&
+              details.genres.slice(0, 3).map((genre) => (
+                <span key={genre} className="meta-item details-meta-genres">
+                  {genre}
+                </span>
+              ))}
           </div>
 
-          {details.genres && details.genres.length > 0 && (
-            <div className="details-genres">
-              {details.genres.map((genre) => (
-                <span key={genre} className="genre-tag">
-                  {genre}
+          {details.cast && details.cast.length > 0 && (
+            <div className="details-hero-cast">
+              {details.cast.slice(0, 5).map((name, index) => (
+                <span key={index} className="details-hero-cast-name">
+                  {name}
                 </span>
               ))}
             </div>
@@ -299,15 +354,39 @@ export function DetailsPage() {
           <p className="details-overview">{details.overview}</p>
 
           <div className="details-actions">
-            <button className="btn btn-primary" onClick={() => handlePlay()}>
-              ▶ Play
+            <button
+              className="btn btn-primary"
+              onClick={() => {
+                if (isMovie) {
+                  if (torrents.length > 0) {
+                    torrentsRef.current?.scrollIntoView({
+                      behavior: "smooth",
+                      block: "start",
+                    });
+                  } else {
+                    handleSearchTorrents(true);
+                  }
+                } else {
+                  document
+                    .querySelector(".details-episodes")
+                    ?.scrollIntoView({ behavior: "smooth", block: "start" });
+                }
+              }}
+            >
+              <Play size={14} /> Play
             </button>
 
             <button
               className={`btn ${inLibrary ? "btn-secondary" : "btn-ghost"}`}
               onClick={handleLibraryToggle}
             >
-              {inLibrary ? "✓ In Library" : "+ Add to Library"}
+              {inLibrary ? (
+                <>
+                  <Check size={14} /> In Library
+                </>
+              ) : (
+                "+ Add to Library"
+              )}
             </button>
 
             {inLibrary && (
@@ -317,7 +396,15 @@ export function DetailsPage() {
                   onClick={handleFavoriteToggle}
                   title="Toggle favorite"
                 >
-                  {isFavorite ? "★ Favorite" : "☆ Favorite"}
+                  {isFavorite ? (
+                    <>
+                      <StarFilled size={14} /> Favorite
+                    </>
+                  ) : (
+                    <>
+                      <StarOutline size={14} /> Favorite
+                    </>
+                  )}
                 </button>
 
                 <button
@@ -325,26 +412,40 @@ export function DetailsPage() {
                   onClick={handleWatchlistToggle}
                   title="Toggle watchlist"
                 >
-                  {isWatchlist ? "✓ Watchlist" : "+ Watchlist"}
+                  {isWatchlist ? (
+                    <>
+                      <Check size={14} /> Watchlist
+                    </>
+                  ) : (
+                    "+ Watchlist"
+                  )}
                 </button>
               </>
             )}
 
             <button
               className="btn btn-ghost"
-              onClick={handleSearchTorrents}
-              disabled={isSearchingTorrents || activeDebridService === "none"}
+              onClick={() => handleSearchTorrents(true)}
+              disabled={
+                isSearchingTorrents ||
+                activeDebridService === "none" ||
+                !isMovie
+              }
               title={
                 activeDebridService === "none"
                   ? "Configure a debrid service in Settings first"
-                  : ""
+                  : !isMovie
+                    ? "Select an episode below"
+                    : ""
               }
             >
               {isSearchingTorrents
                 ? "Searching..."
                 : activeDebridService === "none"
                   ? "Setup Debrid First"
-                  : "Find Sources"}
+                  : !isMovie
+                    ? "Select an Episode"
+                    : "Find Sources"}
             </button>
           </div>
         </div>
@@ -352,7 +453,6 @@ export function DetailsPage() {
 
       {/* Scrollable content below the hero */}
       <div className="details-sections">
-        {/* User rating, tags, notes - only show if in library */}
         {inLibrary && (
           <div className="details-section">
             <div className="details-user-content">
@@ -366,7 +466,7 @@ export function DetailsPage() {
                       onClick={() => handleRatingChange(star)}
                       title={`Rate ${star}/10`}
                     >
-                      ★
+                      <StarFilled size={14} />
                     </button>
                   ))}
                   {userRating && (
@@ -404,22 +504,6 @@ export function DetailsPage() {
                     </label>
                   );
                 })}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Cast */}
-        {details.cast && details.cast.length > 0 && (
-          <div className="details-section">
-            <div className="details-cast">
-              <h3>Cast</h3>
-              <div className="cast-list">
-                {details.cast.slice(0, 10).map((name, index) => (
-                  <div key={index} className="cast-member">
-                    <span className="cast-name">{name}</span>
-                  </div>
-                ))}
               </div>
             </div>
           </div>
@@ -463,12 +547,12 @@ export function DetailsPage() {
                   return (
                     <div
                       key={episode.id}
-                      className="episode-card"
+                      className={`episode-card${selectedEpisode?.season === selectedSeason && selectedEpisode?.episode === episode.episodeNumber ? " episode-card-selected" : ""}`}
                       onClick={() =>
-                        handlePlay(
-                          undefined,
+                        handleEpisodeClick(
                           selectedSeason,
                           episode.episodeNumber,
+                          episode.name,
                         )
                       }
                     >
@@ -478,9 +562,13 @@ export function DetailsPage() {
                         {episode.still ? (
                           <img src={episode.still} alt={episode.name} />
                         ) : (
-                          <div className="episode-placeholder">📺</div>
+                          <div className="episode-placeholder">
+                            <Tv size={28} />
+                          </div>
                         )}
-                        <div className="episode-play">▶</div>
+                        <div className="episode-play">
+                          <Play size={20} />
+                        </div>
                         {watchProgress && watchProgress.progress > 0 && (
                           <div className="episode-progress-bar">
                             <div
@@ -514,71 +602,248 @@ export function DetailsPage() {
               from 1 addon source
             </span>
             <Link to="/settings" className="upsell-link">
-              Vreamio+ searches 12 sources →
+              FlowVid+ searches 12 sources →
             </Link>
           </div>
         )}
 
-        {/* Torrent results */}
-        {torrents.length > 0 && (
-          <div className="details-section details-torrents">
-            <h2>Available Sources ({torrents.length})</h2>
-            <div className="torrents-list">
-              {torrents.map((torrent) => {
-                const info = parseStreamInfo(torrent.title);
-                return (
-                  <div
-                    key={torrent.id}
-                    className="torrent-card"
-                    onClick={() => handleTorrentClick(torrent)}
-                  >
-                    <div className="torrent-info">
-                      <span className="torrent-title">{torrent.title}</span>
-                      <div className="torrent-badges">
-                        <span
-                          className={`badge badge-resolution ${info.resolutionBadge === "4K" ? "badge-4k" : ""}`}
-                        >
-                          {info.resolutionBadge}
-                        </span>
-                        {info.hasDolbyVision && (
-                          <span className="badge badge-hdr badge-dv">DV</span>
-                        )}
-                        {info.hasHDR10Plus && (
-                          <span className="badge badge-hdr badge-hdr10plus">
-                            HDR10+
+        {/* Torrent results — movies only; series uses the episode popup */}
+        {isMovie && (torrents.length > 0 || isSearchingTorrents) && (
+          <div className="details-section details-torrents" ref={torrentsRef}>
+            <div className="torrents-header">
+              <h2>
+                {isSearchingTorrents
+                  ? "Searching Sources..."
+                  : `Available Sources (${torrents.length})`}
+              </h2>
+              {!isSearchingTorrents && torrents.length > 0 && (
+                <button
+                  className="btn btn-ghost btn-sm"
+                  onClick={() => handleSearchTorrents(false)}
+                >
+                  Refresh
+                </button>
+              )}
+            </div>
+
+            {isSearchingTorrents && (
+              <div className="torrents-loading">
+                <div className="spinner"></div>
+                <span>Searching across providers...</span>
+              </div>
+            )}
+
+            {!isSearchingTorrents && torrents.length > 0 && (
+              <div className="torrents-list">
+                {torrents.map((torrent) => {
+                  const info = parseStreamInfo(torrent.title);
+                  const isInstant = instantAvailability.get(torrent.infoHash);
+                  return (
+                    <div
+                      key={torrent.id}
+                      className={`torrent-card ${isInstant ? "torrent-card-instant" : ""}`}
+                      onClick={() => handleTorrentPlay(torrent)}
+                    >
+                      <div className="torrent-card-left">
+                        <div className="torrent-quality-col">
+                          <span
+                            className={`torrent-res-badge ${info.resolutionBadge === "4K" ? "res-4k" : info.resolutionBadge === "1080p" ? "res-1080p" : "res-other"}`}
+                          >
+                            {info.resolutionBadge}
                           </span>
-                        )}
-                        {info.isHDR &&
-                          !info.hasDolbyVision &&
-                          !info.hasHDR10Plus && (
-                            <span className="badge badge-hdr">
-                              {info.hdrType}
+                          {isInstant && (
+                            <span className="instant-badge">
+                              <Bolt size={10} /> Instant
                             </span>
                           )}
-                        {info.videoCodec && (
-                          <span className="badge badge-codec">
-                            {info.videoCodec}
+                        </div>
+                        <div className="torrent-details-col">
+                          <span className="torrent-title">{torrent.title}</span>
+                          <div className="torrent-badges">
+                            {info.hasDolbyVision && (
+                              <DolbyVisionBadge height={16} />
+                            )}
+                            {info.hasHDR10Plus && (
+                              <HDR10PlusBadge height={16} />
+                            )}
+                            {info.isHDR &&
+                              !info.hasDolbyVision &&
+                              !info.hasHDR10Plus &&
+                              (info.hdrType === "HDR10" ? (
+                                <HDR10Badge height={16} />
+                              ) : (
+                                <HDRBadge height={16} />
+                              ))}
+                            {info.hasAtmos && <DolbyAtmosBadge height={16} />}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="torrent-card-right">
+                        <div className="torrent-stats">
+                          <span className="torrent-size">
+                            {torrent.sizeFormatted}
                           </span>
-                        )}
-                        {info.hasAtmos && (
-                          <span className="badge badge-atmos">Atmos</span>
-                        )}
-                        <span className="torrent-size">
-                          {torrent.sizeFormatted}
-                        </span>
-                        <span className="torrent-seeds">↑ {torrent.seeds}</span>
+                          <span className="torrent-seeds">
+                            {torrent.seeds > 0 ? `${torrent.seeds} seeds` : ""}
+                          </span>
+                          <span className="torrent-provider">
+                            {torrent.provider}
+                          </span>
+                        </div>
+                        <button
+                          className="btn btn-primary btn-sm torrent-play-btn"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleTorrentPlay(torrent);
+                          }}
+                        >
+                          <Play size={12} /> Play
+                        </button>
                       </div>
                     </div>
-                    {instantAvailability.get(torrent.infoHash) && (
-                      <span className="instant-badge">⚡ Instant</span>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
       </div>
+
+      {/* Episode sources popup — series only */}
+      {showEpisodePopup && selectedEpisode && (
+        <div
+          className="episode-popup-backdrop"
+          onClick={() => setShowEpisodePopup(false)}
+        >
+          <div className="episode-popup" onClick={(e) => e.stopPropagation()}>
+            <div className="episode-popup-header">
+              <div>
+                <div className="episode-popup-episode">
+                  S{selectedEpisode.season}E{selectedEpisode.episode} &mdash;{" "}
+                  {selectedEpisode.name}
+                </div>
+                <div className="episode-popup-subtitle">
+                  {isSearchingTorrents
+                    ? "Searching sources..."
+                    : torrents.length > 0
+                      ? `${torrents.length} source${torrents.length !== 1 ? "s" : ""} found`
+                      : "No sources found"}
+                </div>
+              </div>
+              <button
+                className="episode-popup-close"
+                onClick={() => setShowEpisodePopup(false)}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {isSearchingTorrents && (
+              <div className="torrents-loading">
+                <div className="spinner"></div>
+                <span>Searching across providers...</span>
+              </div>
+            )}
+
+            {!isSearchingTorrents && torrents.length === 0 && (
+              <div className="episode-popup-empty">
+                No sources found for this episode.
+              </div>
+            )}
+
+            {!isSearchingTorrents &&
+              !canUseNativeScrapers &&
+              torrents.length > 0 && (
+                <div className="free-tier-upsell episode-popup-upsell">
+                  <span>
+                    Found {torrents.length} result
+                    {torrents.length !== 1 ? "s" : ""} from 1 addon source
+                  </span>
+                  <Link to="/settings" className="upsell-link">
+                    FlowVid+ searches 12 sources →
+                  </Link>
+                </div>
+              )}
+
+            {!isSearchingTorrents && torrents.length > 0 && (
+              <div className="episode-popup-list">
+                {torrents.map((torrent) => {
+                  const info = parseStreamInfo(torrent.title);
+                  const isInstant = instantAvailability.get(torrent.infoHash);
+                  return (
+                    <div
+                      key={torrent.id}
+                      className={`torrent-card ${isInstant ? "torrent-card-instant" : ""}`}
+                      onClick={() => {
+                        setShowEpisodePopup(false);
+                        handleTorrentPlay(torrent);
+                      }}
+                    >
+                      <div className="torrent-card-left">
+                        <div className="torrent-quality-col">
+                          <span
+                            className={`torrent-res-badge ${info.resolutionBadge === "4K" ? "res-4k" : info.resolutionBadge === "1080p" ? "res-1080p" : "res-other"}`}
+                          >
+                            {info.resolutionBadge}
+                          </span>
+                          {isInstant && (
+                            <span className="instant-badge">
+                              <Bolt size={10} /> Instant
+                            </span>
+                          )}
+                        </div>
+                        <div className="torrent-details-col">
+                          <span className="torrent-title">{torrent.title}</span>
+                          <div className="torrent-badges">
+                            {info.hasDolbyVision && (
+                              <DolbyVisionBadge height={16} />
+                            )}
+                            {info.hasHDR10Plus && (
+                              <HDR10PlusBadge height={16} />
+                            )}
+                            {info.isHDR &&
+                              !info.hasDolbyVision &&
+                              !info.hasHDR10Plus &&
+                              (info.hdrType === "HDR10" ? (
+                                <HDR10Badge height={16} />
+                              ) : (
+                                <HDRBadge height={16} />
+                              ))}
+                            {info.hasAtmos && <DolbyAtmosBadge height={16} />}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="torrent-card-right">
+                        <div className="torrent-stats">
+                          <span className="torrent-size">
+                            {torrent.sizeFormatted}
+                          </span>
+                          <span className="torrent-seeds">
+                            {torrent.seeds > 0 ? `${torrent.seeds} seeds` : ""}
+                          </span>
+                          <span className="torrent-provider">
+                            {torrent.provider}
+                          </span>
+                        </div>
+                        <button
+                          className="btn btn-primary btn-sm torrent-play-btn"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setShowEpisodePopup(false);
+                            handleTorrentPlay(torrent);
+                          }}
+                        >
+                          <Play size={12} /> Play
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

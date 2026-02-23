@@ -1,14 +1,14 @@
 /**
- * One-time localStorage migration from "streamio-*" keys to "vreamio-*" keys.
+ * One-time localStorage migration from "streamio-*" keys to "FlowVid-*" keys.
  * Preserves existing user data (auth, profiles, library, settings) on app rename.
  * Safe to run multiple times — only migrates if old key exists and new key does not.
  */
 
 const MIGRATION_MAP: Record<string, string> = {
-  "streamio-auth": "vreamio-auth",
-  "streamio-profiles": "vreamio-profiles",
-  "streamio-library": "vreamio-library",
-  "streamio-settings": "vreamio-settings",
+  "streamio-auth": "FlowVid-auth",
+  "streamio-profiles": "FlowVid-profiles",
+  "streamio-library": "FlowVid-library",
+  "streamio-settings": "FlowVid-settings",
 };
 
 export function migrateLocalStorage(): void {
@@ -28,7 +28,7 @@ export function migrateLocalStorage(): void {
 
   if (migrated > 0) {
     console.log(
-      `[Migration] Migrated ${migrated} localStorage key(s) from streamio → vreamio`,
+      `[Migration] Migrated ${migrated} localStorage key(s) from streamio → FlowVid`,
     );
   }
 }

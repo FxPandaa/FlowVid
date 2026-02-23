@@ -114,15 +114,17 @@ class OpenSubtitlesService {
       const preferredLanguages = params.languages || ["eng"];
 
       for (const sub of subtitles) {
-        // Check if this subtitle matches our preferred languages
         const langCode = sub.lang || "";
+
+        // Only include subtitles that match preferred languages
         const isPreferred = preferredLanguages.some(
           (pref) =>
             langCode.toLowerCase() === pref.toLowerCase() ||
             langCode.toLowerCase().startsWith(pref.toLowerCase().slice(0, 2)),
         );
 
-        // Include all subtitles but prioritize preferred ones
+        if (!isPreferred) continue; // Skip non-preferred languages
+
         results.push({
           id: sub.id || `stremio-${Date.now()}-${Math.random()}`,
           language: LANGUAGE_NAMES[langCode] || langCode,
@@ -130,21 +132,27 @@ class OpenSubtitlesService {
           fileName: `subtitle-${sub.id}.srt`,
           downloadUrl: sub.url || "",
           format: "srt",
-          rating: isPreferred ? 10 : 5, // Prioritize preferred languages
+          rating: 0,
           downloads: 0,
           hearing_impaired: sub.m === "h" || false,
           foreignPartsOnly: false,
         });
       }
 
-      // Sort: preferred languages first, then by language name
-      results.sort((a, b) => {
-        const aPreferred = preferredLanguages.includes(a.languageCode);
-        const bPreferred = preferredLanguages.includes(b.languageCode);
-        if (aPreferred && !bPreferred) return -1;
-        if (!aPreferred && bPreferred) return 1;
-        return a.language.localeCompare(b.language);
-      });
+      // Sort by language name
+      results.sort((a, b) => a.language.localeCompare(b.language));
+
+      // Limit to max 5 per language to avoid overwhelming the menu
+      const langCounts: Record<string, number> = {};
+      const limited: Subtitle[] = [];
+      for (const sub of results) {
+        const count = langCounts[sub.languageCode] || 0;
+        if (count < 5) {
+          limited.push(sub);
+          langCounts[sub.languageCode] = count + 1;
+        }
+      }
+      return limited;
     } catch (error) {
       console.error("Error searching subtitles:", error);
     }

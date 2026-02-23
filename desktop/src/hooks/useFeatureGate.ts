@@ -1,8 +1,8 @@
 /**
- * Vreamio Feature Gate Hook
+ * FlowVid Feature Gate Hook
  *
  * Reads subscription status and exposes tier-based feature flags.
- * Only three features are gated behind Vreamio+:
+ * Only three features are gated behind FlowVid+:
  *   1. Family Profiles ("Who's Watching") — TorBox multi-IP enables simultaneous streams
  *   2. Native In-App Scrapers — 11 direct scrapers for zero addon dependency
  *   3. Managed TorBox — auto-provisioned, zero-setup debrid
@@ -13,7 +13,7 @@
 
 import { useSubscriptionStore } from "../stores/subscriptionStore";
 
-export type Tier = "free" | "vreamio_plus";
+export type Tier = "free" | "FlowVid_plus";
 
 export type GatedFeature =
   | "family_profiles"
@@ -27,12 +27,12 @@ const FEATURE_INFO: Record<
   family_profiles: {
     title: "Family Profiles",
     description:
-      "Share Vreamio with your whole household. Everyone gets their own profile, watchlist, and continue watching — and can stream on different devices at the same time without conflicts.",
+      "Share FlowVid with your whole household. Everyone gets their own profile, watchlist, and continue watching — and can stream on different devices at the same time without conflicts.",
   },
   native_scrapers: {
     title: "In-App Scrapers",
     description:
-      "11 independent scraping sources built right into the app. When addon services go down, Vreamio+ keeps finding sources. More sources means better quality matches and rare content that addons miss.",
+      "11 independent scraping sources built right into the app. When addon services go down, FlowVid+ keeps finding sources. More sources means better quality matches and rare content that addons miss.",
   },
   managed_torbox: {
     title: "Managed TorBox",
@@ -54,10 +54,10 @@ export function getAllGatedFeatures() {
 
 /**
  * Determine tier from subscription status.
- * Only "active" subscriptions unlock Vreamio+ features.
+ * Only "active" subscriptions unlock FlowVid+ features.
  */
 function deriveTier(status: string | undefined): Tier {
-  return status === "active" ? "vreamio_plus" : "free";
+  return status === "active" ? "FlowVid_plus" : "free";
 }
 
 export function useFeatureGate() {
@@ -65,12 +65,12 @@ export function useFeatureGate() {
   const status = subscription?.status;
 
   const tier = deriveTier(status);
-  const isPaid = tier === "vreamio_plus";
+  const isPaid = tier === "FlowVid_plus";
 
   return {
-    /** Current tier: "free" or "vreamio_plus" */
+    /** Current tier: "free" or "FlowVid_plus" */
     tier,
-    /** Whether user has an active Vreamio+ subscription */
+    /** Whether user has an active FlowVid+ subscription */
     isPaid,
     /** Can use family profiles ("Who's Watching", up to 8 profiles) */
     canUseProfiles: isPaid,
@@ -88,7 +88,7 @@ export function useFeatureGate() {
 export function getFeatureGate() {
   const subscription = useSubscriptionStore.getState().subscription;
   const tier = deriveTier(subscription?.status);
-  const isPaid = tier === "vreamio_plus";
+  const isPaid = tier === "FlowVid_plus";
 
   return {
     tier,

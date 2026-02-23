@@ -9,18 +9,18 @@ const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
 // Profile avatar options - color + icon combos
 export const PROFILE_AVATARS = [
-  { color: "#6366f1", icon: "😊" },
+  { color: "#00E5FF", icon: "😊" },
   { color: "#ef4444", icon: "😎" },
   { color: "#22c55e", icon: "🤩" },
   { color: "#f97316", icon: "🦊" },
-  { color: "#a855f7", icon: "🐱" },
+  { color: "#007AFF", icon: "🐱" },
   { color: "#ec4899", icon: "🌸" },
   { color: "#06b6d4", icon: "🌊" },
   { color: "#eab308", icon: "⭐" },
   { color: "#3b82f6", icon: "🎮" },
   { color: "#10b981", icon: "🌿" },
   { color: "#f43f5e", icon: "🔥" },
-  { color: "#8b5cf6", icon: "🎵" },
+  { color: "#3b82f6", icon: "🎵" },
 ] as const;
 
 export interface Profile {
@@ -177,7 +177,7 @@ export const useProfileStore = create<ProfileState>()(
       },
     }),
     {
-      name: "vreamio-profiles",
+      name: "FlowVid-profiles",
       storage: createJSONStorage(() => localStorage),
     },
   ),

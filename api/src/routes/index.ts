@@ -1,5 +1,5 @@
 /**
- * Vreamio API - Routes Index
+ * FlowVid API - Routes Index
  * Export all route modules
  */
 

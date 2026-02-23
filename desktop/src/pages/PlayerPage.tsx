@@ -19,6 +19,25 @@ import {
   EmbeddedMpvPlayer,
 } from "../components";
 import { parseStreamInfo } from "../utils/streamParser";
+import {
+  AlertTriangle,
+  ArrowLeft,
+  Play,
+  Pause,
+  VolumeX,
+  Volume1,
+  Volume2,
+  SkipForward,
+  Maximize,
+  Minimize,
+  X,
+  Tv,
+  DolbyVisionBadge,
+  HDR10Badge,
+  HDR10PlusBadge,
+  DolbyAtmosBadge,
+  HDRBadge,
+} from "../components/Icons";
 import "./PlayerPage.css";
 
 export function PlayerPage() {
@@ -109,6 +128,7 @@ export function PlayerPage() {
       type: type as "movie" | "series",
       title: contentDetails.title,
       poster: contentDetails.poster,
+      backdrop: contentDetails.backdrop || contentDetails.background,
       season: season ? parseInt(season) : undefined,
       episode: episode ? parseInt(episode) : undefined,
       progress,
@@ -475,6 +495,12 @@ export function PlayerPage() {
       if (playerType === "embedded-mpv") {
         setUseEmbeddedMpv(true);
         setIsLoading(false);
+
+        // Show stream info overlay for 4 seconds (MPV)
+        setShowStreamInfo(true);
+        setTimeout(() => {
+          setShowStreamInfo(false);
+        }, 4000);
         return;
       }
 
@@ -990,6 +1016,7 @@ export function PlayerPage() {
                 type: type as "movie" | "series",
                 title: contentDetails.title,
                 poster: contentDetails.poster,
+                backdrop: contentDetails.backdrop || contentDetails.background,
                 season: season ? parseInt(season) : undefined,
                 episode: episode ? parseInt(episode) : undefined,
                 progress,
@@ -1067,9 +1094,42 @@ export function PlayerPage() {
         </div>
       )}
 
+      {/* Stream Info Overlay – shows for both built-in and MPV player */}
+      {showStreamInfo && selectedTorrent && (
+        <div className="stream-info-overlay">
+          {(() => {
+            const info = parseStreamInfo(selectedTorrent.title);
+            return (
+              <div className="stream-info-content">
+                <div className="stream-info-badges">
+                  <span
+                    className={`stream-badge badge-resolution ${info.resolutionBadge === "4K" ? "badge-4k" : ""}`}
+                  >
+                    {info.resolutionBadge}
+                  </span>
+                  {info.hasDolbyVision && <DolbyVisionBadge height={24} />}
+                  {info.hasHDR10Plus && <HDR10PlusBadge height={24} />}
+                  {info.isHDR &&
+                    !info.hasDolbyVision &&
+                    !info.hasHDR10Plus &&
+                    (info.hdrType === "HDR10" ? (
+                      <HDR10Badge height={24} />
+                    ) : (
+                      <HDRBadge height={24} />
+                    ))}
+                  {info.hasAtmos && <DolbyAtmosBadge height={24} />}
+                </div>
+              </div>
+            );
+          })()}
+        </div>
+      )}
+
       {error && (
         <div className="player-error">
-          <span className="error-icon">⚠️</span>
+          <span className="error-icon">
+            <AlertTriangle size={40} />
+          </span>
           <h2>Playback Error</h2>
           <p>{error}</p>
           <div className="error-actions">
@@ -1093,7 +1153,7 @@ export function PlayerPage() {
               className="btn btn-ghost source-back-top"
               onClick={handleBack}
             >
-              ← Back
+              <ArrowLeft size={16} /> Back
             </button>
             <h2>Select Source</h2>
             <p>{title}</p>
@@ -1114,29 +1174,17 @@ export function PlayerPage() {
                       >
                         {info.resolutionBadge}
                       </span>
-                      {info.hasDolbyVision && (
-                        <span className="badge badge-hdr badge-dv">DV</span>
-                      )}
-                      {info.hasHDR10Plus && (
-                        <span className="badge badge-hdr badge-hdr10plus">
-                          HDR10+
-                        </span>
-                      )}
+                      {info.hasDolbyVision && <DolbyVisionBadge height={16} />}
+                      {info.hasHDR10Plus && <HDR10PlusBadge height={16} />}
                       {info.isHDR &&
                         !info.hasDolbyVision &&
-                        !info.hasHDR10Plus && (
-                          <span className="badge badge-hdr">
-                            {info.hdrType}
-                          </span>
-                        )}
-                      {info.videoCodec && (
-                        <span className="badge badge-codec">
-                          {info.videoCodec}
-                        </span>
-                      )}
-                      {info.hasAtmos && (
-                        <span className="badge badge-atmos">Atmos</span>
-                      )}
+                        !info.hasHDR10Plus &&
+                        (info.hdrType === "HDR10" ? (
+                          <HDR10Badge height={16} />
+                        ) : (
+                          <HDRBadge height={16} />
+                        ))}
+                      {info.hasAtmos && <DolbyAtmosBadge height={16} />}
                       <span className="source-size">
                         {torrent.sizeFormatted}
                       </span>
@@ -1159,7 +1207,7 @@ export function PlayerPage() {
                           : "Play in built-in player"
                       }
                     >
-                      ▶ Play
+                      <Play size={14} /> Play
                     </button>
                   </div>
                 </div>
@@ -1242,6 +1290,7 @@ export function PlayerPage() {
                   type: type as "movie" | "series",
                   title: details.title,
                   poster: details.poster,
+                  backdrop: details.backdrop || details.background,
                   season: season ? parseInt(season) : undefined,
                   episode: episode ? parseInt(episode) : undefined,
                   progress: 100,
@@ -1277,57 +1326,6 @@ export function PlayerPage() {
             bottomPosition={subtitleAppearance.bottomPosition ?? 10}
           />
 
-          {/* Stream Info Overlay */}
-          {showStreamInfo && selectedTorrent && (
-            <div className="stream-info-overlay">
-              {(() => {
-                const info = parseStreamInfo(selectedTorrent.title);
-                return (
-                  <div className="stream-info-content">
-                    <div className="stream-info-badges">
-                      <span
-                        className={`stream-badge badge-resolution ${info.resolutionBadge === "4K" ? "badge-4k" : ""}`}
-                      >
-                        {info.resolutionBadge}
-                      </span>
-                      {/* Show DV badge if present */}
-                      {info.hasDolbyVision && (
-                        <span className="stream-badge badge-hdr badge-dv">
-                          DV {info.dolbyVisionProfile || ""}
-                        </span>
-                      )}
-                      {/* Show HDR10+ badge if present */}
-                      {info.hasHDR10Plus && (
-                        <span className="stream-badge badge-hdr badge-hdr10plus">
-                          HDR10+
-                        </span>
-                      )}
-                      {/* Show HDR10 or HLG if no DV/HDR10+ */}
-                      {info.isHDR &&
-                        !info.hasDolbyVision &&
-                        !info.hasHDR10Plus && (
-                          <span className="stream-badge badge-hdr">
-                            {info.hdrType}
-                          </span>
-                        )}
-                      {info.videoCodec && (
-                        <span className="stream-badge badge-codec">
-                          {info.videoCodec}
-                        </span>
-                      )}
-                      {info.hasAtmos && (
-                        <span className="stream-badge badge-atmos">Atmos</span>
-                      )}
-                      {info.isRemux && (
-                        <span className="stream-badge badge-remux">REMUX</span>
-                      )}
-                    </div>
-                  </div>
-                );
-              })()}
-            </div>
-          )}
-
           <div
             className={`player-controls ${showControls ? "visible" : ""}`}
             onClick={(e) => {
@@ -1339,7 +1337,7 @@ export function PlayerPage() {
           >
             <div className="controls-top">
               <button className="back-btn" onClick={handleBack}>
-                ← Back
+                <ArrowLeft size={16} /> Back
               </button>
               <span className="player-title">{title}</span>
               {/* Episode menu button for series only */}
@@ -1375,16 +1373,18 @@ export function PlayerPage() {
               <div className="controls-row">
                 <div className="controls-left">
                   <button className="control-btn" onClick={togglePlay}>
-                    {isPlaying ? "⏸" : "▶"}
+                    {isPlaying ? <Pause size={20} /> : <Play size={20} />}
                   </button>
 
                   <div className="volume-control">
                     <button className="control-btn" onClick={toggleMute}>
-                      {isMuted || volume === 0
-                        ? "🔇"
-                        : volume < 0.5
-                          ? "🔉"
-                          : "🔊"}
+                      {isMuted || volume === 0 ? (
+                        <VolumeX size={20} />
+                      ) : volume < 0.5 ? (
+                        <Volume1 size={20} />
+                      ) : (
+                        <Volume2 size={20} />
+                      )}
                     </button>
                     <input
                       type="range"
@@ -1410,7 +1410,7 @@ export function PlayerPage() {
                       onClick={handleNextEpisode}
                       title="Next Episode"
                     >
-                      ⏭
+                      <SkipForward size={20} />
                     </button>
                   )}
 
@@ -1448,7 +1448,11 @@ export function PlayerPage() {
                     )}
 
                   <button className="control-btn" onClick={toggleFullscreen}>
-                    {isFullscreen ? "⊙" : "⛶"}
+                    {isFullscreen ? (
+                      <Minimize size={20} />
+                    ) : (
+                      <Maximize size={20} />
+                    )}
                   </button>
                 </div>
               </div>
@@ -1471,7 +1475,7 @@ export function PlayerPage() {
                     className="close-btn"
                     onClick={() => setShowEpisodeMenu(false)}
                   >
-                    ✕
+                    <X size={16} />
                   </button>
                 </div>
                 <div className="episode-menu-list">
@@ -1518,10 +1522,14 @@ export function PlayerPage() {
                           {ep.still ? (
                             <img src={ep.still} alt={ep.name} />
                           ) : (
-                            <div className="episode-placeholder">📺</div>
+                            <div className="episode-placeholder">
+                              <Tv size={28} />
+                            </div>
                           )}
                           {isCurrentEpisode && (
-                            <div className="now-playing">▶ Now Playing</div>
+                            <div className="now-playing">
+                              <Play size={14} /> Now Playing
+                            </div>
                           )}
                           {watchProgress &&
                             watchProgress.progress > 0 &&

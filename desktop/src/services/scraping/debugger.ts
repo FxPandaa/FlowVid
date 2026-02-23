@@ -1,7 +1,7 @@
 /**
  * Scraping Observability & Debug System
  *
- * Provides instrumentation for comparing Vreamio's scraping pipeline with Torrentio.
+ * Provides instrumentation for comparing FlowVid's scraping pipeline with Torrentio.
  * Logs query inputs, per-provider metrics, and post-processing statistics.
  */
 
@@ -100,10 +100,10 @@ export interface SearchDebugReport {
   // Comparison with Torrentio (if available)
   torrentioComparison?: {
     torrentioCount: number;
-    vreamioCount: number;
+    FlowVidCount: number;
     overlap: number;
     onlyInTorrentio: string[];
-    onlyInVreamio: string[];
+    onlyInFlowVid: string[];
   };
 }
 
@@ -345,38 +345,38 @@ export class ScrapingDebugger {
 
   recordTorrentioComparison(
     torrentioResults: TorrentResult[],
-    vreamioResults: TorrentResult[],
+    FlowVidResults: TorrentResult[],
   ) {
     if (!this.debugMode || !this.currentReport) return;
 
     const torrentioHashes = new Set(
       torrentioResults.map((r) => r.infoHash).filter(Boolean),
     );
-    const vreamioHashes = new Set(
-      vreamioResults.map((r) => r.infoHash).filter(Boolean),
+    const FlowVidHashes = new Set(
+      FlowVidResults.map((r) => r.infoHash).filter(Boolean),
     );
 
     const overlap = [...torrentioHashes].filter((h) =>
-      vreamioHashes.has(h),
+      FlowVidHashes.has(h),
     ).length;
     const onlyInTorrentio = [...torrentioHashes].filter(
-      (h) => !vreamioHashes.has(h),
+      (h) => !FlowVidHashes.has(h),
     );
-    const onlyInVreamio = [...vreamioHashes].filter(
+    const onlyInFlowVid = [...FlowVidHashes].filter(
       (h) => !torrentioHashes.has(h),
     );
 
     this.currentReport.torrentioComparison = {
       torrentioCount: torrentioResults.length,
-      vreamioCount: vreamioResults.length,
+      FlowVidCount: FlowVidResults.length,
       overlap,
       onlyInTorrentio: onlyInTorrentio.slice(0, 20),
-      onlyInVreamio: onlyInVreamio.slice(0, 20),
+      onlyInFlowVid: onlyInFlowVid.slice(0, 20),
     };
 
     console.log("[DEBUG] Torrentio comparison:", {
       torrentio: torrentioResults.length,
-      vreamio: vreamioResults.length,
+      FlowVid: FlowVidResults.length,
       overlap,
     });
   }
@@ -441,7 +441,7 @@ export class ScrapingDebugger {
       lines.push("");
       lines.push("=== TORRENTIO COMPARISON ===");
       lines.push(`  Torrentio: ${r.torrentioComparison.torrentioCount}`);
-      lines.push(`  Vreamio: ${r.torrentioComparison.vreamioCount}`);
+      lines.push(`  FlowVid: ${r.torrentioComparison.FlowVidCount}`);
       lines.push(`  Overlap: ${r.torrentioComparison.overlap}`);
     }
 

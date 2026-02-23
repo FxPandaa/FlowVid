@@ -14,13 +14,14 @@ import { useProfileStore } from "./stores";
 import { useFeatureGate } from "./hooks/useFeatureGate";
 import { useSubscriptionStore } from "./stores/subscriptionStore";
 import { useAuthStore } from "./stores/authStore";
+import { useLibraryStore } from "./stores/libraryStore";
 import { useEffect } from "react";
 
 function ProfileGuard({ children }: { children: React.ReactNode }) {
   const { profiles, activeProfileId } = useProfileStore();
   const { canUseProfiles } = useFeatureGate();
 
-  // Free users bypass profile selection entirely — profiles are a Vreamio+ feature
+  // Free users bypass profile selection entirely — profiles are a FlowVid+ feature
   if (!canUseProfiles) {
     return <>{children}</>;
   }
@@ -41,6 +42,7 @@ function ProfileGuard({ children }: { children: React.ReactNode }) {
 function AppInitializer({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const fetchStatus = useSubscriptionStore((s) => s.fetchStatus);
+  const loadFromServer = useLibraryStore((s) => s.loadFromServer);
 
   // Fetch subscription status when user is authenticated
   useEffect(() => {
@@ -48,6 +50,15 @@ function AppInitializer({ children }: { children: React.ReactNode }) {
       fetchStatus();
     }
   }, [isAuthenticated, fetchStatus]);
+
+  // Silently refresh library/history/collections from server on login.
+  // localStorage data is already shown immediately via Zustand persist,
+  // so this runs in the background and updates the UI once the response arrives.
+  useEffect(() => {
+    if (isAuthenticated) {
+      loadFromServer();
+    }
+  }, [isAuthenticated, loadFromServer]);
 
   return <>{children}</>;
 }

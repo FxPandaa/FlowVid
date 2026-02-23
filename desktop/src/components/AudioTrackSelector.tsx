@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { X, Volume2 } from "./Icons";
 import "./AudioTrackSelector.css";
 
 export interface AudioTrack {
@@ -105,7 +106,9 @@ export function AudioTrackSelector({
   if (!isOpen) {
     return (
       <button className="audio-toggle-btn" onClick={() => setIsOpen(true)}>
-        <span className="audio-icon">🔊</span>
+        <span className="audio-icon">
+          <Volume2 size={16} />
+        </span>
         {activeTrack && (
           <span className="audio-active-lang">
             {getLanguageName(activeTrack.language)}
@@ -120,7 +123,7 @@ export function AudioTrackSelector({
       <div className="audio-header">
         <h3>Audio Tracks</h3>
         <button className="close-btn" onClick={() => setIsOpen(false)}>
-          ✕
+          <X size={14} />
         </button>
       </div>
 

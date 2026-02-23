@@ -6,7 +6,7 @@ export interface Scraper {
   id: string;
   name: string;
   tier: number;
-  /** "native" = built-in scraper (Vreamio+ only), "addon" = external addon (free) */
+  /** "native" = built-in scraper (FlowVid+ only), "addon" = external addon (free) */
   type: "native" | "addon";
   region?: string;
   specialty?: "anime" | "movies" | "series" | "general";
@@ -126,7 +126,7 @@ class TorrentioScraper implements Scraper {
       const response = await tauriFetch(url, {
         method: "GET",
         headers: {
-          "User-Agent": "Vreamio/1.0",
+          "User-Agent": "FlowVid/1.0",
         },
       });
 
@@ -438,7 +438,7 @@ class TPBScraper implements Scraper {
       const response = await tauriFetch(url, {
         method: "GET",
         headers: {
-          "User-Agent": "Vreamio/1.0",
+          "User-Agent": "FlowVid/1.0",
         },
       });
 
@@ -742,7 +742,7 @@ class SolidTorrentsWorkingScraper implements Scraper {
       const response = await tauriFetch(url, {
         method: "GET",
         headers: {
-          "User-Agent": "Vreamio/1.0",
+          "User-Agent": "FlowVid/1.0",
           Accept: "application/json",
         },
       });
@@ -1123,7 +1123,7 @@ class RutorScraper implements Scraper {
 
       const response = await tauriFetch(url, {
         method: "GET",
-        headers: { "User-Agent": "Vreamio/1.0" },
+        headers: { "User-Agent": "FlowVid/1.0" },
       });
 
       if (!response.ok) return [];

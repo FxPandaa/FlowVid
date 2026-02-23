@@ -1,45 +1,45 @@
-:root {
-  /* Modern dark theme with depth */
-  --bg-primary: #050507;
-  --bg-secondary: rgba(20, 20, 25, 0.8);
-  --bg-tertiary: rgba(30, 30, 38, 0.7);
+﻿:root {
+  /* -- FlowVid Minimalist Theme --
+     Deep dark with restrained "Flow Blue" accents.
+     Inspired by Nuvio's flat, professional aesthetic. */
+
+  --bg-primary: #06080e;
+  --bg-secondary: rgba(255, 255, 255, 0.03);
+  --bg-tertiary: rgba(255, 255, 255, 0.06);
   --bg-glass: rgba(255, 255, 255, 0.03);
   --bg-glass-hover: rgba(255, 255, 255, 0.06);
 
-  /* Text colors */
-  --text-primary: #ffffff;
-  --text-secondary: rgba(255, 255, 255, 0.7);
-  --text-tertiary: rgba(255, 255, 255, 0.4);
-  --text-muted: rgba(255, 255, 255, 0.25);
+  /* Text -- clean white/gray hierarchy */
+  --text-primary: rgba(255, 255, 255, 0.93);
+  --text-secondary: rgba(255, 255, 255, 0.55);
+  --text-tertiary: rgba(255, 255, 255, 0.32);
+  --text-muted: rgba(255, 255, 255, 0.18);
 
-  /* Accent colors - Modern vibrant palette */
-  --primary: #6366f1;
-  --primary-hover: #4f46e5;
-  --primary-glow: rgba(99, 102, 241, 0.3);
+  /* Accent -- Flow Blue, used sparingly */
+  --primary: #00e5ff;
+  --primary-hover: #00c4dd;
+  --primary-muted: rgba(0, 229, 255, 0.12);
+  --accent-blue: #007aff;
   --accent-red: #ef4444;
   --accent-green: #22c55e;
-  --accent-blue: #3b82f6;
   --accent-orange: #f97316;
-  --accent-purple: #a855f7;
   --accent-pink: #ec4899;
-  --accent-cyan: #06b6d4;
 
-  /* Borders */
-  --border-color: rgba(255, 255, 255, 0.08);
-  --border-color-hover: rgba(255, 255, 255, 0.15);
+  /* Borders -- very subtle */
+  --border-color: rgba(255, 255, 255, 0.06);
+  --border-color-hover: rgba(255, 255, 255, 0.12);
 
-  /* Shadows */
-  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.4);
-  --shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.5);
-  --shadow-glow: 0 0 40px var(--primary-glow);
+  /* Shadows -- minimal, no glows */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.35);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.4);
 
-  /* Border radius - Larger for modern look */
-  --radius-xs: 6px;
-  --radius-sm: 10px;
-  --radius-md: 14px;
-  --radius-lg: 20px;
-  --radius-xl: 28px;
+  /* Border radius -- tighter, refined */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
   --radius-full: 9999px;
 
   /* Blur */
@@ -47,11 +47,10 @@
   --blur-md: blur(16px);
   --blur-lg: blur(32px);
 
-  /* Transitions */
-  --transition-fast: 0.15s cubic-bezier(0.4, 0, 0.2, 1);
-  --transition-normal: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  --transition-slow: 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-  --transition-spring: 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  /* Transitions -- snappy, no spring/bounce */
+  --transition-fast: 0.12s ease;
+  --transition-normal: 0.2s ease;
+  --transition-slow: 0.3s ease;
 }
 
 * {
@@ -70,31 +69,19 @@ body,
 
 body {
   font-family:
-    "SF Pro Display",
     "Inter",
+    "SF Pro Display",
     -apple-system,
     BlinkMacSystemFont,
     "Segoe UI",
     Roboto,
     sans-serif;
   background-color: var(--bg-primary);
-  background-image:
-    radial-gradient(
-      ellipse 80% 50% at 50% -20%,
-      rgba(99, 102, 241, 0.15),
-      transparent
-    ),
-    radial-gradient(
-      ellipse 60% 40% at 100% 100%,
-      rgba(139, 92, 246, 0.08),
-      transparent
-    );
   color: var(--text-primary);
-  line-height: 1.6;
+  line-height: 1.5;
   letter-spacing: -0.01em;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
 }
 
 a {
@@ -120,29 +107,21 @@ select {
   color: inherit;
 }
 
-/* Style select dropdowns for dark theme */
 select {
   background-color: var(--bg-tertiary);
   color: var(--text-primary);
 }
 
 select option {
-  background-color: var(--bg-secondary);
+  background-color: #111318;
   color: var(--text-primary);
   padding: 8px 12px;
 }
 
-select option:hover,
-select option:focus,
-select option:checked {
-  background-color: var(--bg-tertiary);
-  color: var(--text-primary);
-}
-
-/* Scrollbar styling - Modern thin */
+/* Scrollbar -- thin, minimal */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
 
 ::-webkit-scrollbar-track {
@@ -150,21 +129,20 @@ select option:checked {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.08);
   border-radius: var(--radius-full);
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.14);
 }
 
-/* Hide scrollbar on hover reveal */
 .scroll-hide-bar::-webkit-scrollbar-thumb {
   background: transparent;
 }
 
 .scroll-hide-bar:hover::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.08);
 }
 
 /* Utility classes */
@@ -177,23 +155,19 @@ select option:checked {
 .flex {
   display: flex;
 }
-
 .flex-center {
   display: flex;
   align-items: center;
   justify-content: center;
 }
-
 .flex-between {
   display: flex;
   align-items: center;
   justify-content: space-between;
 }
-
 .grid {
   display: grid;
 }
-
 .gap-sm {
   gap: 8px;
 }
@@ -204,70 +178,41 @@ select option:checked {
   gap: 24px;
 }
 
-/* Button styles - Modern with glass effect */
+/* -- Buttons -- flat, clean, no glow -- */
 .btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  padding: 14px 28px;
+  gap: 8px;
+  padding: 10px 22px;
   border-radius: var(--radius-md);
   font-weight: 600;
   font-size: 14px;
   letter-spacing: -0.01em;
-  transition: all var(--transition-normal);
+  transition:
+    background var(--transition-fast),
+    opacity var(--transition-fast);
   position: relative;
-  overflow: hidden;
-}
-
-.btn::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    180deg,
-    rgba(255, 255, 255, 0.1) 0%,
-    transparent 100%
-  );
-  opacity: 0;
-  transition: opacity var(--transition-fast);
-}
-
-.btn:hover::before {
-  opacity: 1;
 }
 
 .btn-primary {
-  background: linear-gradient(
-    135deg,
-    var(--primary) 0%,
-    var(--primary-hover) 100%
-  );
-  color: white;
-  box-shadow: 0 4px 16px var(--primary-glow);
+  background: var(--primary);
+  color: #000;
 }
 
 .btn-primary:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 24px var(--primary-glow);
-}
-
-.btn-primary:active {
-  transform: translateY(0);
+  opacity: 0.85;
 }
 
 .btn-secondary {
-  background: var(--bg-glass);
-  backdrop-filter: var(--blur-sm);
-  -webkit-backdrop-filter: var(--blur-sm);
+  background: rgba(255, 255, 255, 0.06);
   color: var(--text-primary);
   border: 1px solid var(--border-color);
 }
 
 .btn-secondary:hover {
-  background: var(--bg-glass-hover);
+  background: rgba(255, 255, 255, 0.1);
   border-color: var(--border-color-hover);
-  transform: translateY(-1px);
 }
 
 .btn-ghost {
@@ -276,59 +221,50 @@ select option:checked {
 }
 
 .btn-ghost:hover {
-  background: var(--bg-glass);
   color: var(--text-primary);
 }
 
-/* Input styles - Modern glassmorphism */
+/* -- Inputs -- clean, flat -- */
 .input {
   width: 100%;
-  padding: 14px 18px;
-  background: var(--bg-glass);
-  backdrop-filter: var(--blur-sm);
-  -webkit-backdrop-filter: var(--blur-sm);
+  padding: 12px 16px;
+  background: rgba(255, 255, 255, 0.04);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   color: var(--text-primary);
-  font-size: 15px;
-  transition: all var(--transition-normal);
+  font-size: 14px;
+  transition: border-color var(--transition-fast);
 }
 
 .input:focus {
-  border-color: var(--primary);
-  box-shadow: 0 0 0 3px var(--primary-glow);
-  background: var(--bg-glass-hover);
+  border-color: rgba(255, 255, 255, 0.2);
 }
 
 .input::placeholder {
   color: var(--text-tertiary);
 }
 
-/* Card styles - Glass effect */
+/* -- Cards -- flat surface, no hover movement -- */
 .card {
-  background: var(--bg-glass);
-  backdrop-filter: var(--blur-md);
-  -webkit-backdrop-filter: var(--blur-md);
+  background: rgba(255, 255, 255, 0.03);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
   overflow: hidden;
-  transition: all var(--transition-normal);
+  transition: border-color var(--transition-normal);
 }
 
 .card:hover {
-  transform: translateY(-6px) scale(1.01);
   border-color: var(--border-color-hover);
-  box-shadow: var(--shadow-lg);
 }
 
-/* Loading spinner - Modern */
+/* Loading spinner */
 .spinner {
-  width: 44px;
-  height: 44px;
-  border: 3px solid var(--border-color);
+  width: 40px;
+  height: 40px;
+  border: 2px solid rgba(255, 255, 255, 0.1);
   border-top-color: var(--primary);
   border-radius: 50%;
-  animation: spin 0.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  animation: spin 0.8s linear infinite;
 }
 
 @keyframes spin {
@@ -337,7 +273,6 @@ select option:checked {
   }
 }
 
-/* Pulse animation */
 @keyframes pulse {
   0%,
   100% {
@@ -348,66 +283,27 @@ select option:checked {
   }
 }
 
-/* Fade in animation */
 @keyframes fadeIn {
   from {
     opacity: 0;
-    transform: translateY(10px);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-/* Scale in animation */
-@keyframes scaleIn {
-  from {
-    opacity: 0;
-    transform: scale(0.95);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-/* Slide up animation */
-@keyframes slideUp {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
   }
 }
 
 .animate-fade-in {
-  animation: fadeIn 0.4s var(--transition-normal) forwards;
-}
-
-.animate-scale-in {
-  animation: scaleIn 0.3s var(--transition-normal) forwards;
-}
-
-.animate-slide-up {
-  animation: slideUp 0.5s var(--transition-normal) forwards;
+  animation: fadeIn 0.3s ease forwards;
 }
 
 /* Page transitions */
 .page-enter {
   opacity: 0;
-  transform: translateY(10px);
 }
 
 .page-enter-active {
   opacity: 1;
-  transform: translateY(0);
-  transition:
-    opacity 0.3s,
-    transform 0.3s;
+  transition: opacity 0.2s ease;
 }
 
 .page-exit {
@@ -416,5 +312,5 @@ select option:checked {
 
 .page-exit-active {
   opacity: 0;
-  transition: opacity 0.2s;
+  transition: opacity 0.15s ease;
 }

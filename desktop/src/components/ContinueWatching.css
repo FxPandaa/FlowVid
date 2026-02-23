@@ -1,6 +1,6 @@
-/* Continue Watching Section - Modern */
+﻿/* -- Continue Watching -- flat, no movement -- */
 .continue-watching {
-  padding: 32px 56px;
+  padding: 24px 48px;
   overflow: visible;
 }
 
@@ -8,77 +8,62 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 24px;
+  margin-bottom: 16px;
 }
 
 .continue-watching-header h2 {
-  font-size: 22px;
-  font-weight: 700;
+  font-size: 16px;
+  font-weight: 600;
   color: var(--text-primary);
   margin: 0;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.01em;
 }
 
 .clear-history-btn {
-  font-size: 13px;
+  font-size: 12px;
   color: var(--text-tertiary);
-  padding: 8px 16px;
+  padding: 6px 14px;
   border-radius: var(--radius-full);
-  transition: all var(--transition-normal);
-  background: var(--bg-glass);
-  border: 1px solid var(--border-color);
+  transition: all var(--transition-fast);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .clear-history-btn:hover {
-  color: var(--text-primary);
-  background: var(--bg-glass-hover);
-  border-color: var(--border-color-hover);
+  color: var(--text-secondary);
+  background: rgba(255, 255, 255, 0.08);
 }
 
 /* Scrollable List */
 .continue-watching-list {
   display: flex;
-  gap: 20px;
+  gap: 14px;
   overflow-x: auto;
   overflow-y: visible;
-  padding: 16px 16px 20px;
-  margin: -16px -16px;
+  padding: 8px 0;
   scroll-behavior: smooth;
+  scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
 }
 
 .continue-watching-list::-webkit-scrollbar {
-  height: 4px;
+  display: none;
 }
 
-.continue-watching-list::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.continue-watching-list::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: var(--radius-full);
-}
-
-/* Card wrapper for positioning */
+/* Card wrapper */
 .continue-card-wrapper {
   position: relative;
   flex-shrink: 0;
   width: 180px;
 }
 
-/* Continue Card - Vertical poster style like other cards */
+/* Continue Card -- no translateY, no scale */
 .continue-card {
   width: 100%;
   display: flex;
   flex-direction: column;
   text-decoration: none;
   color: inherit;
-  transition: transform var(--transition-spring);
-}
-
-.continue-card:hover {
-  transform: translateY(-8px) scale(1.02);
 }
 
 .continue-card:hover .continue-card-overlay {
@@ -86,34 +71,26 @@
 }
 
 .continue-card:hover .continue-card-poster {
-  box-shadow: var(--shadow-lg);
+  border-color: rgba(255, 255, 255, 0.12);
 }
 
-/* Poster - Vertical 2:3 aspect ratio */
+/* Poster */
 .continue-card-poster {
   position: relative;
   width: 100%;
   aspect-ratio: 2/3;
   border-radius: var(--radius-lg);
-  background: linear-gradient(
-    135deg,
-    var(--bg-tertiary) 0%,
-    var(--bg-secondary) 100%
-  );
+  background: rgba(255, 255, 255, 0.03);
   overflow: hidden;
-  box-shadow: var(--shadow-sm);
-  transition: all var(--transition-normal);
+  border: 1px solid transparent;
+  transition: border-color var(--transition-normal);
 }
 
 .continue-card-poster img {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transition: transform var(--transition-slow);
-}
-
-.continue-card:hover .continue-card-poster img {
-  transform: scale(1.05);
+  display: block;
 }
 
 .continue-card-placeholder {
@@ -123,8 +100,7 @@
   align-items: center;
   justify-content: center;
   font-size: 36px;
-  background: linear-gradient(135deg, var(--bg-tertiary), var(--bg-secondary));
-  opacity: 0.5;
+  opacity: 0.2;
 }
 
 .continue-card-overlay {
@@ -133,33 +109,51 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: radial-gradient(
-    circle at center,
-    rgba(0, 0, 0, 0.3) 0%,
-    rgba(0, 0, 0, 0.5) 100%
-  );
+  background: rgba(0, 0, 0, 0.4);
   opacity: 0;
   transition: opacity var(--transition-normal);
 }
 
 .play-button {
-  width: 64px;
-  height: 64px;
+  width: 48px;
+  height: 48px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: var(--blur-sm);
-  -webkit-backdrop-filter: var(--blur-sm);
+  background: rgba(255, 255, 255, 0.9);
   border-radius: 50%;
-  font-size: 22px;
-  color: var(--bg-primary);
-  transition: all var(--transition-spring);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  font-size: 18px;
+  color: #000;
 }
 
-.play-button:hover {
-  transform: scale(1.1);
+/* Season/Episode Tag */
+.continue-card-season-tag {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  padding: 2px 7px;
+  font-size: 11px;
+  font-weight: 600;
+  color: white;
+  background: rgba(0, 0, 0, 0.6);
+  border-radius: var(--radius-xs);
+  z-index: 3;
+  pointer-events: none;
+}
+
+/* Percentage Badge */
+.continue-card-percent {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  padding: 2px 7px;
+  font-size: 12px;
+  font-weight: 600;
+  color: white;
+  background: rgba(0, 0, 0, 0.6);
+  border-radius: var(--radius-xs);
+  z-index: 3;
+  pointer-events: none;
 }
 
 /* Progress Bar */
@@ -168,38 +162,33 @@
   bottom: 0;
   left: 0;
   right: 0;
-  height: 4px;
+  height: 3px;
   background: rgba(0, 0, 0, 0.5);
   z-index: 2;
 }
 
 .continue-progress-fill {
   height: 100%;
-  background: linear-gradient(
-    90deg,
-    var(--primary) 0%,
-    var(--accent-purple) 100%
-  );
+  background: var(--primary);
   border-radius: 0 2px 2px 0;
 }
 
 /* Info */
 .continue-card-info {
-  padding: 14px 6px;
+  padding: 10px 2px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 3px;
 }
 
 .continue-card-title {
-  font-size: 14px;
-  font-weight: 600;
+  font-size: 13px;
+  font-weight: 500;
   color: var(--text-primary);
   margin: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  letter-spacing: -0.01em;
 }
 
 .continue-card-episode {
@@ -220,21 +209,19 @@
   position: absolute;
   top: 8px;
   right: 8px;
-  width: 28px;
-  height: 28px;
+  width: 26px;
+  height: 26px;
   display: flex;
   align-items: center;
   justify-content: center;
   background: rgba(0, 0, 0, 0.7);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 50%;
-  color: rgba(255, 255, 255, 0.8);
-  font-size: 14px;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 13px;
   cursor: pointer;
   opacity: 0;
-  transition: all var(--transition-normal);
+  transition: opacity var(--transition-fast), background var(--transition-fast);
   z-index: 10;
 }
 
@@ -243,105 +230,87 @@
 }
 
 .delete-button:hover {
-  background: rgba(239, 68, 68, 0.9);
+  background: rgba(239, 68, 68, 0.85);
   color: white;
-  border-color: rgba(239, 68, 68, 0.5);
-  transform: scale(1.1);
 }
 
 /* Delete Confirmation Overlay */
 .delete-confirm-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.7);
+  background: rgba(0, 0, 0, 0.6);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 1000;
-  animation: fadeIn 0.2s ease;
+  animation: fadeIn 0.15s ease;
 }
 
 .delete-confirm-popup {
   background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-xl);
-  padding: 28px;
-  max-width: 380px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  max-width: 360px;
   text-align: center;
-  animation: scaleIn 0.2s ease;
+  animation: fadeIn 0.15s ease;
 }
 
 .delete-confirm-popup h3 {
-  margin: 0 0 12px 0;
-  font-size: 18px;
+  margin: 0 0 10px 0;
+  font-size: 16px;
   font-weight: 600;
   color: var(--text-primary);
 }
 
 .delete-confirm-popup p {
-  margin: 0 0 24px 0;
-  font-size: 14px;
+  margin: 0 0 20px 0;
+  font-size: 13px;
   color: var(--text-secondary);
   line-height: 1.5;
 }
 
 .delete-confirm-buttons {
   display: flex;
-  gap: 12px;
+  gap: 10px;
   justify-content: center;
 }
 
 .delete-confirm-buttons .btn {
-  padding: 10px 24px;
-  font-size: 14px;
+  padding: 8px 20px;
+  font-size: 13px;
   font-weight: 500;
   border-radius: var(--radius-md);
   cursor: pointer;
-  transition: all var(--transition-normal);
+  transition: all var(--transition-fast);
 }
 
 .delete-confirm-buttons .btn-ghost {
   background: transparent;
-  border: 1px solid var(--border-color);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   color: var(--text-secondary);
 }
 
 .delete-confirm-buttons .btn-ghost:hover {
-  background: var(--bg-glass);
+  background: rgba(255, 255, 255, 0.06);
   color: var(--text-primary);
 }
 
 .delete-confirm-buttons .btn-danger {
-  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  background: #ef4444;
   border: none;
   color: white;
 }
 
 .delete-confirm-buttons .btn-danger:hover {
-  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
-  transform: translateY(-1px);
+  background: #dc2626;
 }
 
 @keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-@keyframes scaleIn {
-  from {
-    transform: scale(0.95);
-    opacity: 0;
-  }
-  to {
-    transform: scale(1);
-    opacity: 1;
-  }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 /* Responsive */

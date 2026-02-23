@@ -1,5 +1,5 @@
 /**
- * Vreamio API - Subscription State Machine
+ * FlowVid API - Subscription State Machine
  * Defines valid transitions and enforces state integrity
  */
 

@@ -1,5 +1,5 @@
 /**
- * Vreamio API - Billing & Subscription Types
+ * FlowVid API - Billing & Subscription Types
  * State machine types for the paid access → TorBox vendor provisioning system
  */
 
@@ -156,7 +156,7 @@ export enum AuditEventType {
 
 export interface SubscriptionStatusResponse {
   status: SubscriptionStatus;
-  tier: "free" | "vreamio_plus";
+  tier: "free" | "FlowVid_plus";
   plan: string;
   currentPeriodEnd: string | null;
   cancelAtPeriodEnd: boolean;

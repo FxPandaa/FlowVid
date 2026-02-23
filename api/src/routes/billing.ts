@@ -1,5 +1,5 @@
 /**
- * Vreamio API - Billing Routes
+ * FlowVid API - Billing Routes
  * Handles subscription checkout, status, portal, and Stripe webhooks
  */
 

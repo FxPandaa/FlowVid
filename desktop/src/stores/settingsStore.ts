@@ -420,7 +420,7 @@ export const useSettingsStore = create<SettingsState>()(
       },
     }),
     {
-      name: "vreamio-settings",
+      name: "FlowVid-settings",
       storage: createJSONStorage(() => localStorage),
     },
   ),

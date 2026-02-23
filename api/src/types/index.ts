@@ -1,5 +1,5 @@
 /**
- * Vreamio API - Type Definitions
+ * FlowVid API - Type Definitions
  * Simplified types for account sync backend
  *
  * NOTE: Scraping and debrid types are in the desktop/mobile apps

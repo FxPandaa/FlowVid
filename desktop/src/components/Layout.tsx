@@ -1,8 +1,21 @@
 import { Outlet, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { useAuthStore } from "../stores/authStore";
 import { useProfileStore } from "../stores/profileStore";
+import { Play, Settings } from "./Icons";
 import "./Layout.css";
+
+/**
+ * Freezes the outlet element at mount time so AnimatePresence
+ * can keep showing the OLD page content during the exit animation
+ * even after the route has already changed.
+ */
+function FrozenOutlet() {
+  const outlet = Outlet({});
+  const [frozen] = useState(outlet);
+  return frozen;
+}
 
 export function Layout() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -32,8 +45,10 @@ export function Layout() {
       <header className={`header${isPlayer ? " header--hidden" : ""}`}>
         <nav className="nav">
           <NavLink to="/" className="logo">
-            <span className="logo-icon">▶</span>
-            <span className="logo-text">Vreamio</span>
+            <span className="logo-icon">
+              <Play size={16} />
+            </span>
+            <span className="logo-text">FlowVid</span>
           </NavLink>
 
           <div className="nav-links">
@@ -67,7 +82,7 @@ export function Layout() {
 
           <div className="nav-right">
             <NavLink to="/settings" className="settings-btn">
-              ⚙️
+              <Settings size={18} />
             </NavLink>
 
             {activeProfile && (
@@ -102,9 +117,18 @@ export function Layout() {
       </header>
 
       <main className="main-content">
-        <div key={location.pathname} className="route-content">
-          <Outlet />
-        </div>
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={location.pathname}
+            className="route-content"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15, ease: "easeInOut" }}
+          >
+            <FrozenOutlet />
+          </motion.div>
+        </AnimatePresence>
       </main>
     </div>
   );

@@ -1,5 +1,5 @@
 /**
- * Vreamio API - Billing Service
+ * FlowVid API - Billing Service
  * Handles Stripe checkout, subscription management, and state transitions
  */
 
@@ -304,7 +304,7 @@ export function getSubscriptionStatus(
   const status =
     (sub?.status as SubscriptionStatus) ?? SubscriptionStatus.NOT_SUBSCRIBED;
 
-  const tier = status === SubscriptionStatus.ACTIVE ? "vreamio_plus" : "free";
+  const tier = status === SubscriptionStatus.ACTIVE ? "FlowVid_plus" : "free";
 
   return {
     status,

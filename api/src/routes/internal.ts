@@ -1,5 +1,5 @@
 /**
- * Vreamio API - Internal/Operator Routes
+ * FlowVid API - Internal/Operator Routes
  * Health checks, reconciliation, capacity monitoring, manual overrides
  *
  * Protected by a simple bearer token (INTERNAL_API_KEY env var)

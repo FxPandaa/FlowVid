@@ -1,5 +1,5 @@
 /**
- * Vreamio API - TorBox Provisioning Service
+ * FlowVid API - TorBox Provisioning Service
  * Orchestrates TorBox vendor user creation, email confirmation polling,
  * token acquisition, and revocation
  */

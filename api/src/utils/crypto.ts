@@ -1,5 +1,5 @@
 /**
- * Vreamio API - Encryption Utilities
+ * FlowVid API - Encryption Utilities
  * AES-256-GCM encryption for TorBox API tokens at rest
  */
 
@@ -19,7 +19,7 @@ function deriveKey(): Buffer {
   // The salt is not secret — the key derivation secret is.
   return crypto.pbkdf2Sync(
     secret,
-    "vreamio-torbox-token-encryption",
+    "FlowVid-torbox-token-encryption",
     100_000,
     32,
     "sha256",

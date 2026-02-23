@@ -1,5 +1,5 @@
 /**
- * Vreamio API - TorBox Vendor API Client
+ * FlowVid API - TorBox Vendor API Client
  * Typed HTTP client for TorBox Vendors API with retry logic
  *
  * API Base: https://api.torbox.app/v1/api/vendors
@@ -44,7 +44,7 @@ export class TorBoxVendorClient {
   // ==========================================================================
 
   /**
-   * Get the vendor account details (your Vreamio vendor account)
+   * Get the vendor account details (your FlowVid vendor account)
    * GET /getaccount
    */
   async getAccount(): Promise<VendorAccount> {

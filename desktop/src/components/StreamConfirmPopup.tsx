@@ -5,6 +5,7 @@ import {
   BADGE_COLORS,
   formatFileSize,
 } from "../utils/streamParser";
+import { X, Film, Sparkles, Volume2, Folder, Play, Bolt } from "./Icons";
 import "./StreamConfirmPopup.css";
 
 interface StreamConfirmPopupProps {
@@ -51,7 +52,7 @@ export function StreamConfirmPopup({
         <div className="stream-popup-header">
           <h2>Stream Details</h2>
           <button className="stream-popup-close" onClick={onCancel}>
-            ✕
+            <X size={16} />
           </button>
         </div>
 
@@ -77,7 +78,7 @@ export function StreamConfirmPopup({
           {/* Detailed Info Sections */}
           <div className="stream-info-sections">
             {/* Video Section */}
-            <InfoSection title="Video" icon="🎬">
+            <InfoSection title="Video" icon={<Film size={16} />}>
               <InfoRow label="Resolution" value={streamInfo.resolution} />
               {streamInfo.videoCodec && (
                 <InfoRow label="Codec" value={streamInfo.videoCodec} />
@@ -88,7 +89,7 @@ export function StreamConfirmPopup({
             </InfoSection>
 
             {/* HDR Section */}
-            <InfoSection title="HDR" icon="✨">
+            <InfoSection title="HDR" icon={<Sparkles size={16} />}>
               <div className="hdr-display">
                 <HDRBadgeLarge
                   hdrType={streamInfo.hdrType}
@@ -106,7 +107,7 @@ export function StreamConfirmPopup({
             </InfoSection>
 
             {/* Audio Section */}
-            <InfoSection title="Audio" icon="🔊">
+            <InfoSection title="Audio" icon={<Volume2 size={16} />}>
               {streamInfo.audioCodec && (
                 <InfoRow label="Codec" value={streamInfo.audioCodec} />
               )}
@@ -125,7 +126,7 @@ export function StreamConfirmPopup({
             </InfoSection>
 
             {/* Source Section */}
-            <InfoSection title="Source" icon="📁">
+            <InfoSection title="Source" icon={<Folder size={16} />}>
               <InfoRow
                 label="Size"
                 value={torrent.sizeFormatted || formatFileSize(torrent.size)}
@@ -147,7 +148,9 @@ export function StreamConfirmPopup({
             Cancel
           </button>
           <button className="btn btn-primary btn-play" onClick={onPlay}>
-            <span className="play-icon">▶</span>
+            <span className="play-icon">
+              <Play size={14} />
+            </span>
             Play
           </button>
         </div>
@@ -163,7 +166,7 @@ function InfoSection({
   children,
 }: {
   title: string;
-  icon: string;
+  icon: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
@@ -288,7 +291,11 @@ function RemuxBadge() {
 }
 
 function InstantBadge() {
-  return <span className="badge badge-instant">⚡ Instant</span>;
+  return (
+    <span className="badge badge-instant">
+      <Bolt size={12} /> Instant
+    </span>
+  );
 }
 
 function getHDRExplanation(hdrType: string, profile?: string): string {
