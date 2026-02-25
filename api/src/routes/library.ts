@@ -14,7 +14,10 @@ import {
 } from "../middleware/errorHandler.js";
 import { addToLibrarySchema, imdbIdParamSchema } from "../utils/validation.js";
 import { NotFoundError, ConflictError } from "../utils/errors.js";
-import { getMetadata } from "../services/metadata/index.js";
+import {
+  getMetadata,
+  getCachedMetadataBatch,
+} from "../services/metadata/index.js";
 import type { MediaType, LibraryItem } from "../types/index.js";
 
 const router = Router();
@@ -55,9 +58,15 @@ router.get(
       )
       .get(req.userId) as { count: number };
 
-    // Fetch metadata for each item (with caching)
+    // Batch-fetch metadata from cache in one query (eliminates N+1 HTTP calls)
+    const imdbIds = items.map((item) => item.imdb_id);
+    const cachedMeta = getCachedMetadataBatch(imdbIds);
+
+    // Only fetch missing metadata from Cinemeta (cache misses)
     const itemsWithMetadata = await Promise.all(
       items.map(async (item) => {
+        const cached = cachedMeta.get(item.imdb_id);
+        if (cached) return { ...item, metadata: cached };
         try {
           const metadata = await getMetadata(item.imdb_id, item.media_type);
           return { ...item, metadata };

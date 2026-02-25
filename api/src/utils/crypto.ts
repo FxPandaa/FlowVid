@@ -10,20 +10,23 @@ const ALGORITHM = "aes-256-gcm";
 const IV_LENGTH = 16;
 const AUTH_TAG_LENGTH = 16;
 
+/** Cached derived key — PBKDF2 is deterministic for a given config, so derive once */
+let _cachedKey: Buffer | null = null;
+
 /**
  * Derive a 256-bit key from the configured encryption secret
  */
 function deriveKey(): Buffer {
+  if (_cachedKey) return _cachedKey;
   const secret = config.torbox.encryptionKey;
-  // Use PBKDF2 with a fixed salt derived from the app name
-  // The salt is not secret — the key derivation secret is.
-  return crypto.pbkdf2Sync(
+  _cachedKey = crypto.pbkdf2Sync(
     secret,
     "FlowVid-torbox-token-encryption",
     100_000,
     32,
     "sha256",
   );
+  return _cachedKey;
 }
 
 /**

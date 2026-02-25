@@ -133,6 +133,18 @@ interface LibraryState {
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
+// Debounce timer for sync — prevents firing 3 full-sync POST requests on every button click
+let syncTimeout: ReturnType<typeof setTimeout> | null = null;
+
+/** Schedule a debounced sync (2s). Calling again within the window resets the timer. */
+function debouncedSync(syncFn: () => Promise<void>): void {
+  if (syncTimeout) clearTimeout(syncTimeout);
+  syncTimeout = setTimeout(() => {
+    syncTimeout = null;
+    syncFn();
+  }, 2000);
+}
+
 export const useLibraryStore = create<LibraryState>()(
   persist(
     (set, get) => ({
@@ -203,7 +215,7 @@ export const useLibraryStore = create<LibraryState>()(
         }));
 
         // Sync in background
-        get().syncWithServer();
+        debouncedSync(() => get().syncWithServer());
       },
 
       removeFromLibrary: (imdbId: string) => {
@@ -217,7 +229,7 @@ export const useLibraryStore = create<LibraryState>()(
         }));
 
         // Sync in background
-        get().syncWithServer();
+        debouncedSync(() => get().syncWithServer());
       },
 
       isInLibrary: (imdbId: string) => {
@@ -232,7 +244,7 @@ export const useLibraryStore = create<LibraryState>()(
               : item,
           ),
         }));
-        get().syncWithServer();
+        debouncedSync(() => get().syncWithServer());
       },
 
       toggleWatchlist: (imdbId: string) => {
@@ -243,7 +255,7 @@ export const useLibraryStore = create<LibraryState>()(
               : item,
           ),
         }));
-        get().syncWithServer();
+        debouncedSync(() => get().syncWithServer());
       },
 
       setUserRating: (imdbId: string, rating: number) => {
@@ -254,7 +266,7 @@ export const useLibraryStore = create<LibraryState>()(
               : item,
           ),
         }));
-        get().syncWithServer();
+        debouncedSync(() => get().syncWithServer());
       },
 
       updateNotes: (imdbId: string, notes: string) => {
@@ -263,7 +275,7 @@ export const useLibraryStore = create<LibraryState>()(
             item.imdbId === imdbId ? { ...item, notes } : item,
           ),
         }));
-        get().syncWithServer();
+        debouncedSync(() => get().syncWithServer());
       },
 
       addTag: (imdbId: string, tag: string) => {
@@ -274,7 +286,7 @@ export const useLibraryStore = create<LibraryState>()(
               : item,
           ),
         }));
-        get().syncWithServer();
+        debouncedSync(() => get().syncWithServer());
       },
 
       removeTag: (imdbId: string, tag: string) => {
@@ -285,7 +297,7 @@ export const useLibraryStore = create<LibraryState>()(
               : item,
           ),
         }));
-        get().syncWithServer();
+        debouncedSync(() => get().syncWithServer());
       },
 
       updateWatchProgress: (item) => {
@@ -315,7 +327,7 @@ export const useLibraryStore = create<LibraryState>()(
         });
 
         // Sync in background
-        get().syncWithServer();
+        debouncedSync(() => get().syncWithServer());
       },
 
       getWatchProgress: (imdbId: string, season?: number, episode?: number) => {
@@ -330,14 +342,14 @@ export const useLibraryStore = create<LibraryState>()(
 
       clearWatchHistory: () => {
         set({ watchHistory: [] });
-        get().syncWithServer();
+        debouncedSync(() => get().syncWithServer());
       },
 
       removeFromHistory: (id: string) => {
         set((state) => ({
           watchHistory: state.watchHistory.filter((item) => item.id !== id),
         }));
-        get().syncWithServer();
+        debouncedSync(() => get().syncWithServer());
       },
 
       // Collections
@@ -355,7 +367,7 @@ export const useLibraryStore = create<LibraryState>()(
           collections: [...state.collections, newCollection],
         }));
 
-        get().syncWithServer();
+        debouncedSync(() => get().syncWithServer());
         return newCollection.id;
       },
 
@@ -363,7 +375,7 @@ export const useLibraryStore = create<LibraryState>()(
         set((state) => ({
           collections: state.collections.filter((col) => col.id !== id),
         }));
-        get().syncWithServer();
+        debouncedSync(() => get().syncWithServer());
       },
 
       addToCollection: (collectionId: string, imdbId: string) => {
@@ -374,7 +386,7 @@ export const useLibraryStore = create<LibraryState>()(
               : col,
           ),
         }));
-        get().syncWithServer();
+        debouncedSync(() => get().syncWithServer());
       },
 
       removeFromCollection: (collectionId: string, imdbId: string) => {
@@ -385,7 +397,7 @@ export const useLibraryStore = create<LibraryState>()(
               : col,
           ),
         }));
-        get().syncWithServer();
+        debouncedSync(() => get().syncWithServer());
       },
 
       renameCollection: (id: string, name: string) => {
@@ -394,7 +406,7 @@ export const useLibraryStore = create<LibraryState>()(
             col.id === id ? { ...col, name } : col,
           ),
         }));
-        get().syncWithServer();
+        debouncedSync(() => get().syncWithServer());
       },
 
       // Filter/Sort

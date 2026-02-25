@@ -38,6 +38,9 @@ export function initDatabase(): Database.Database {
   // Enable WAL mode for better concurrent performance
   db.pragma("journal_mode = WAL");
   db.pragma("foreign_keys = ON");
+  db.pragma("busy_timeout = 5000"); // Wait up to 5s for locks instead of failing immediately
+  db.pragma("synchronous = NORMAL"); // Safe with WAL, 2-3x faster writes
+  db.pragma("cache_size = -20000"); // 20MB page cache (default is 2MB)
 
   // Create tables
   createTables(db);
@@ -162,8 +165,8 @@ function createTables(database: Database.Database): void {
     CREATE TABLE IF NOT EXISTS subscriptions (
       id TEXT PRIMARY KEY,
       user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-      stripe_customer_id TEXT,
-      stripe_subscription_id TEXT UNIQUE,
+      dodo_customer_id TEXT,
+      dodo_subscription_id TEXT UNIQUE,
       status TEXT NOT NULL DEFAULT 'not_subscribed',
       plan TEXT NOT NULL DEFAULT 'standard',
       current_period_start TEXT,
@@ -175,7 +178,7 @@ function createTables(database: Database.Database): void {
     );
     CREATE INDEX IF NOT EXISTS idx_subscriptions_user_id ON subscriptions(user_id);
     CREATE INDEX IF NOT EXISTS idx_subscriptions_status ON subscriptions(status);
-    CREATE INDEX IF NOT EXISTS idx_subscriptions_stripe_sub ON subscriptions(stripe_subscription_id);
+    CREATE INDEX IF NOT EXISTS idx_subscriptions_dodo_sub ON subscriptions(dodo_subscription_id);
   `);
 
   // TorBox vendor users table (maps our users to TorBox vendor accounts)
@@ -226,7 +229,7 @@ function createTables(database: Database.Database): void {
     );
   `);
 
-  // Stripe webhook idempotency table
+  // Webhook idempotency table (Dodo Payments)
   database.exec(`
     CREATE TABLE IF NOT EXISTS webhook_events (
       event_id TEXT PRIMARY KEY,
@@ -272,6 +275,14 @@ function createTables(database: Database.Database): void {
   addProfileIdColumn("watch_history");
   addProfileIdColumn("collections");
   addProfileIdColumn("user_settings");
+
+  // Composite indexes: created AFTER profile_id column is guaranteed to exist
+  database.exec(`
+    CREATE INDEX IF NOT EXISTS idx_library_user_profile
+      ON library(user_id, profile_id, added_at);
+    CREATE INDEX IF NOT EXISTS idx_watch_history_user_profile
+      ON watch_history(user_id, profile_id, last_watched_at);
+  `);
 
   // Extended library table with full metadata for sync (add columns if they don't exist)
   const libraryColumns = database
@@ -355,9 +366,33 @@ export function cleanupExpiredCache(): void {
     .prepare(`DELETE FROM refresh_tokens WHERE expires_at < ?`)
     .run(now);
 
+  // Prune audit log: keep only last 90 days
+  const auditCutoff = new Date(
+    Date.now() - 90 * 24 * 60 * 60 * 1000,
+  ).toISOString();
+  const auditDeleted = database
+    .prepare(`DELETE FROM audit_log WHERE created_at < ?`)
+    .run(auditCutoff);
+
+  // Prune vendor capacity snapshots: keep only last 30 days
+  const capacityCutoff = new Date(
+    Date.now() - 30 * 24 * 60 * 60 * 1000,
+  ).toISOString();
+  const capacityDeleted = database
+    .prepare(`DELETE FROM vendor_capacity WHERE recorded_at < ?`)
+    .run(capacityCutoff);
+
+  // Prune webhook idempotency table: keep only last 7 days
+  const webhookCutoff = new Date(
+    Date.now() - 7 * 24 * 60 * 60 * 1000,
+  ).toISOString();
+  database
+    .prepare(`DELETE FROM webhook_events WHERE processed_at < ?`)
+    .run(webhookCutoff);
+
   if (config.server.isDevelopment) {
     console.log(
-      `🧹 Cache cleanup: ${metadataDeleted.changes} metadata, ${tokensDeleted.changes} tokens`,
+      `🧹 Cache cleanup: ${metadataDeleted.changes} metadata, ${tokensDeleted.changes} tokens, ${auditDeleted.changes} audit rows, ${capacityDeleted.changes} capacity snapshots`,
     );
   }
 }

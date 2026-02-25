@@ -10,7 +10,7 @@ import {
   LoginPage,
   ProfileSelectPage,
 } from "./pages";
-import { useProfileStore } from "./stores";
+import { useProfileStore, useSettingsStore } from "./stores";
 import { useFeatureGate } from "./hooks/useFeatureGate";
 import { useSubscriptionStore } from "./stores/subscriptionStore";
 import { useAuthStore } from "./stores/authStore";
@@ -43,6 +43,7 @@ function AppInitializer({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const fetchStatus = useSubscriptionStore((s) => s.fetchStatus);
   const loadFromServer = useLibraryStore((s) => s.loadFromServer);
+  const loadSettingsFromServer = useSettingsStore((s) => s.loadFromServer);
 
   // Fetch subscription status when user is authenticated
   useEffect(() => {
@@ -51,14 +52,15 @@ function AppInitializer({ children }: { children: React.ReactNode }) {
     }
   }, [isAuthenticated, fetchStatus]);
 
-  // Silently refresh library/history/collections from server on login.
+  // Silently refresh library/history/collections + settings from server on login.
   // localStorage data is already shown immediately via Zustand persist,
   // so this runs in the background and updates the UI once the response arrives.
   useEffect(() => {
     if (isAuthenticated) {
       loadFromServer();
+      loadSettingsFromServer();
     }
-  }, [isAuthenticated, loadFromServer]);
+  }, [isAuthenticated, loadFromServer, loadSettingsFromServer]);
 
   return <>{children}</>;
 }

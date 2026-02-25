@@ -18,10 +18,12 @@ export function errorHandler(
   res: Response,
   _next: NextFunction,
 ): void {
-  // Log error in development
-  if (config.server.isDevelopment) {
-    console.error("Error:", error);
-  }
+  // Always log errors (hide details from response in production, but always log server-side)
+  console.error(
+    `[${new Date().toISOString()}] Error:`,
+    error.message,
+    error.stack,
+  );
 
   // Handle Zod validation errors
   if (error instanceof ZodError) {

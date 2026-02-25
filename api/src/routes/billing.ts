@@ -1,6 +1,6 @@
 /**
  * FlowVid API - Billing Routes
- * Handles subscription checkout, status, portal, and Stripe webhooks
+ * Handles subscription checkout, status, and Dodo Payments webhooks
  */
 
 import { Router, Request, Response } from "express";
@@ -9,10 +9,11 @@ import { authenticate } from "../middleware/auth.js";
 import { asyncHandler } from "../middleware/errorHandler.js";
 import {
   createCheckoutSession,
-  createPortalSession,
   getSubscriptionStatus,
+  getSubscriptionByDodoId,
   transitionSubscription,
-  updateStripeFields,
+  updateDodoFields,
+  verifyDodoWebhookSignature,
   isWebhookProcessed,
   markWebhookProcessed,
   auditLog,
@@ -49,7 +50,7 @@ router.get(
 
 /**
  * POST /billing/checkout
- * Start a Stripe Checkout session for a new subscription
+ * Start a Dodo Payments checkout session for a new subscription
  */
 router.post(
   "/checkout",
@@ -66,24 +67,6 @@ router.post(
         checkoutUrl: result.checkoutUrl,
         sessionId: result.sessionId,
       },
-    });
-  }),
-);
-
-/**
- * POST /billing/portal
- * Create a Stripe Customer Portal session for managing subscription
- */
-router.post(
-  "/portal",
-  authenticate,
-  asyncHandler(async (req: Request, res: Response) => {
-    const userId = req.userId!;
-    const result = await createPortalSession(userId);
-
-    res.json({
-      success: true,
-      data: { portalUrl: result.portalUrl },
     });
   }),
 );
@@ -120,7 +103,7 @@ router.post(
 
 /**
  * GET /billing/mock-success
- * Simulates successful Stripe payment in development
+ * Simulates successful payment in development
  */
 router.get(
   "/mock-success",
@@ -139,9 +122,9 @@ router.get(
       mock: true,
     });
 
-    updateStripeFields(sub_id, {
-      stripeCustomerId: `mock_cus_${Date.now()}`,
-      stripeSubscriptionId: `mock_sub_${Date.now()}`,
+    updateDodoFields(sub_id, {
+      dodoCustomerId: `mock_cus_${Date.now()}`,
+      dodoSubscriptionId: `mock_sub_${Date.now()}`,
       currentPeriodStart: new Date().toISOString(),
       currentPeriodEnd: new Date(
         Date.now() + 30 * 24 * 60 * 60 * 1000,
@@ -173,71 +156,74 @@ router.get(
 );
 
 // ============================================================================
-// STRIPE WEBHOOK
+// DODO PAYMENTS WEBHOOK
 // ============================================================================
 
 /**
  * POST /billing/webhook
- * Stripe webhook endpoint - receives payment events
+ * Dodo Payments webhook endpoint - receives payment & subscription events
  *
- * IMPORTANT: This route must use raw body parsing for signature verification.
- * Mount this BEFORE the JSON body parser in index.ts, or use express.raw().
+ * Uses raw body parsing for HMAC signature verification.
  */
 router.post(
   "/webhook",
   express.raw({ type: "application/json" }),
   asyncHandler(async (req: Request, res: Response) => {
-    // In development without Stripe, just acknowledge
-    if (
-      !config.stripe.secretKey ||
-      config.stripe.secretKey === "sk_test_placeholder"
-    ) {
-      console.log("[Webhook] Stripe not configured, ignoring webhook");
+    // In development without Dodo, just acknowledge
+    if (!config.dodo.apiKey || config.dodo.apiKey === "placeholder") {
+      console.log("[Webhook] Dodo Payments not configured, ignoring webhook");
       res.json({ received: true });
       return;
     }
 
-    const sig = req.headers["stripe-signature"] as string;
+    const sig = req.headers["webhook-signature"] as string;
     if (!sig) {
-      throw new BadRequestError("Missing stripe-signature header");
+      throw new BadRequestError("Missing webhook-signature header");
     }
 
-    let event: any;
-    try {
-      const { default: Stripe } = await import("stripe");
-      const stripe = new Stripe(config.stripe.secretKey);
-      event = stripe.webhooks.constructEvent(
-        req.body,
-        sig,
-        config.stripe.webhookSecret,
-      );
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      console.error(`[Webhook] Signature verification failed: ${message}`);
-      res.status(400).json({ error: `Webhook Error: ${message}` });
+    const rawBody =
+      typeof req.body === "string"
+        ? req.body
+        : Buffer.isBuffer(req.body)
+          ? req.body.toString("utf8")
+          : JSON.stringify(req.body);
+
+    const isValid = verifyDodoWebhookSignature(
+      rawBody,
+      sig,
+      config.dodo.webhookSecret,
+    );
+
+    if (!isValid) {
+      console.error("[Webhook] Dodo signature verification failed");
+      res.status(400).json({ error: "Invalid webhook signature" });
       return;
     }
 
+    const event = JSON.parse(rawBody);
+    const eventId = event.event_id || event.payment_id || `dodo_${Date.now()}`;
+    const eventType = event.type || event.event_type || "unknown";
+
     // Idempotency check
-    if (isWebhookProcessed(event.id)) {
-      console.log(`[Webhook] Event ${event.id} already processed, skipping`);
+    if (isWebhookProcessed(eventId)) {
+      console.log(`[Webhook] Event ${eventId} already processed, skipping`);
       res.json({ received: true });
       return;
     }
 
     auditLog(null, AuditEventType.WEBHOOK_RECEIVED, {
-      eventId: event.id,
-      type: event.type,
+      eventId,
+      type: eventType,
     });
 
     // Handle the event
     try {
-      await handleStripeEvent(event);
-      markWebhookProcessed(event.id, event.type, { success: true });
+      await handleDodoEvent(event);
+      markWebhookProcessed(eventId, eventType, { success: true });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      console.error(`[Webhook] Error handling ${event.type}:`, message);
-      markWebhookProcessed(event.id, event.type, { error: message });
+      console.error(`[Webhook] Error handling ${eventType}:`, message);
+      markWebhookProcessed(eventId, eventType, { error: message });
     }
 
     res.json({ received: true });
@@ -245,31 +231,34 @@ router.post(
 );
 
 // ============================================================================
-// STRIPE EVENT HANDLERS
+// DODO EVENT HANDLERS
 // ============================================================================
 
-async function handleStripeEvent(event: any): Promise<void> {
-  switch (event.type) {
-    case "checkout.session.completed": {
-      const session = event.data.object;
-      const userId = session.metadata?.userId;
-      const subscriptionId = session.metadata?.subscriptionId;
+async function handleDodoEvent(event: any): Promise<void> {
+  const eventType = event.type || event.event_type;
+
+  switch (eventType) {
+    // ── Subscription activated / payment succeeded ──────────────────────
+    case "subscription.active":
+    case "payment.succeeded": {
+      const data = event.data || event;
+      const userId = data.metadata?.user_id;
+      const subscriptionId = data.metadata?.subscription_id;
+      const dodoSubscriptionId = data.subscription_id || data.id;
+      const dodoCustomerId = data.customer?.customer_id || data.customer_id;
 
       if (!userId || !subscriptionId) {
-        console.warn("[Webhook] checkout.session.completed missing metadata");
+        console.warn(`[Webhook] ${eventType} missing user metadata`);
         return;
       }
 
-      // Update Stripe fields
-      updateStripeFields(subscriptionId, {
-        stripeCustomerId:
-          typeof session.customer === "string"
-            ? session.customer
-            : session.customer?.id,
-        stripeSubscriptionId:
-          typeof session.subscription === "string"
-            ? session.subscription
-            : session.subscription?.id,
+      // Update Dodo fields
+      updateDodoFields(subscriptionId, {
+        dodoCustomerId,
+        dodoSubscriptionId,
+        currentPeriodStart:
+          data.current_period_start || new Date().toISOString(),
+        currentPeriodEnd: data.current_period_end || data.next_billing_date,
       });
 
       // Transition to PAID_PENDING_PROVISION
@@ -289,26 +278,37 @@ async function handleStripeEvent(event: any): Promise<void> {
       break;
     }
 
-    case "invoice.payment_succeeded": {
-      const invoice = event.data.object;
-      const stripeSubId =
-        typeof invoice.subscription === "string"
-          ? invoice.subscription
-          : invoice.subscription?.id;
+    // ── Subscription renewal payment succeeded ──────────────────────────
+    case "subscription.renewed":
+    case "payment.refunded": {
+      if (eventType === "payment.refunded") {
+        // Handle refund as cancellation
+        const data = event.data || event;
+        const dodoSubId = data.subscription_id;
+        if (!dodoSubId) return;
 
-      if (!stripeSubId) return;
+        const sub = getSubscriptionByDodoId(dodoSubId);
+        if (sub) {
+          try {
+            transitionSubscription(sub.id, BillingEvent.SUBSCRIPTION_CANCELED);
+          } catch {
+            // Already canceled
+          }
+        }
+        break;
+      }
 
-      const { getSubscriptionByStripeId } =
-        await import("../services/billing/service.js");
-      const sub = getSubscriptionByStripeId(stripeSubId);
+      // Renewal
+      const data = event.data || event;
+      const dodoSubId = data.subscription_id || data.id;
+      if (!dodoSubId) return;
 
+      const sub = getSubscriptionByDodoId(dodoSubId);
       if (sub) {
-        // Update period dates
-        updateStripeFields(sub.id, {
-          currentPeriodStart: new Date(
-            invoice.period_start * 1000,
-          ).toISOString(),
-          currentPeriodEnd: new Date(invoice.period_end * 1000).toISOString(),
+        updateDodoFields(sub.id, {
+          currentPeriodStart:
+            data.current_period_start || new Date().toISOString(),
+          currentPeriodEnd: data.current_period_end || data.next_billing_date,
         });
 
         // If past due, recover
@@ -319,19 +319,13 @@ async function handleStripeEvent(event: any): Promise<void> {
       break;
     }
 
-    case "invoice.payment_failed": {
-      const invoice = event.data.object;
-      const stripeSubId =
-        typeof invoice.subscription === "string"
-          ? invoice.subscription
-          : invoice.subscription?.id;
+    // ── Payment failed ──────────────────────────────────────────────────
+    case "payment.failed": {
+      const data = event.data || event;
+      const dodoSubId = data.subscription_id;
+      if (!dodoSubId) return;
 
-      if (!stripeSubId) return;
-
-      const { getSubscriptionByStripeId } =
-        await import("../services/billing/service.js");
-      const sub = getSubscriptionByStripeId(stripeSubId);
-
+      const sub = getSubscriptionByDodoId(dodoSubId);
       if (sub) {
         try {
           transitionSubscription(sub.id, BillingEvent.PAYMENT_FAILED);
@@ -342,14 +336,15 @@ async function handleStripeEvent(event: any): Promise<void> {
       break;
     }
 
-    case "customer.subscription.deleted": {
-      const subscription = event.data.object;
-      const stripeSubId = subscription.id;
+    // ── Subscription cancelled / expired ────────────────────────────────
+    case "subscription.cancelled":
+    case "subscription.expired":
+    case "subscription.on_hold": {
+      const data = event.data || event;
+      const dodoSubId = data.subscription_id || data.id;
+      if (!dodoSubId) return;
 
-      const { getSubscriptionByStripeId } =
-        await import("../services/billing/service.js");
-      const sub = getSubscriptionByStripeId(stripeSubId);
-
+      const sub = getSubscriptionByDodoId(dodoSubId);
       if (sub) {
         try {
           transitionSubscription(sub.id, BillingEvent.SUBSCRIPTION_CANCELED);
@@ -360,27 +355,24 @@ async function handleStripeEvent(event: any): Promise<void> {
       break;
     }
 
-    case "customer.subscription.updated": {
-      const subscription = event.data.object;
-      const stripeSubId = subscription.id;
+    // ── Subscription updated (e.g. cancel scheduled) ────────────────────
+    case "subscription.updated": {
+      const data = event.data || event;
+      const dodoSubId = data.subscription_id || data.id;
+      if (!dodoSubId) return;
 
-      const { getSubscriptionByStripeId } =
-        await import("../services/billing/service.js");
-      const sub = getSubscriptionByStripeId(stripeSubId);
-
+      const sub = getSubscriptionByDodoId(dodoSubId);
       if (sub) {
-        updateStripeFields(sub.id, {
-          cancelAtPeriodEnd: subscription.cancel_at_period_end,
-          currentPeriodEnd: new Date(
-            subscription.current_period_end * 1000,
-          ).toISOString(),
+        updateDodoFields(sub.id, {
+          cancelAtPeriodEnd: data.cancel_at_period_end ?? false,
+          currentPeriodEnd: data.current_period_end || data.next_billing_date,
         });
       }
       break;
     }
 
     default:
-      console.log(`[Webhook] Unhandled event type: ${event.type}`);
+      console.log(`[Webhook] Unhandled Dodo event type: ${eventType}`);
   }
 }
 

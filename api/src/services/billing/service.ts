@@ -1,9 +1,10 @@
 /**
  * FlowVid API - Billing Service
- * Handles Stripe checkout, subscription management, and state transitions
+ * Handles Dodo Payments checkout, subscription management, and state transitions
  */
 
 import { v4 as uuidv4 } from "uuid";
+import crypto from "crypto";
 import { getDb } from "../../database/index.js";
 import config from "../../config/index.js";
 import {
@@ -14,6 +15,34 @@ import {
   type SubscriptionStatusResponse,
 } from "./types.js";
 import { transition } from "./stateMachine.js";
+
+// ============================================================================
+// DODO PAYMENTS API CLIENT
+// ============================================================================
+
+const DODO_API_BASE = "https://api.dodopayments.com";
+
+async function dodoRequest<T>(
+  method: string,
+  path: string,
+  body?: unknown,
+): Promise<T> {
+  const res = await fetch(`${DODO_API_BASE}${path}`, {
+    method,
+    headers: {
+      Authorization: `Bearer ${config.dodo.apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Dodo API error ${res.status}: ${text}`);
+  }
+
+  return res.json() as Promise<T>;
+}
 
 // ============================================================================
 // SUBSCRIPTION QUERIES
@@ -56,15 +85,15 @@ export function getSubscription(userId: string): SubscriptionRow | null {
 }
 
 /**
- * Get subscription by Stripe subscription ID
+ * Get subscription by Dodo subscription ID
  */
-export function getSubscriptionByStripeId(
-  stripeSubscriptionId: string,
+export function getSubscriptionByDodoId(
+  dodoSubscriptionId: string,
 ): SubscriptionRow | null {
   const db = getDb();
   const sub = db
-    .prepare("SELECT * FROM subscriptions WHERE stripe_subscription_id = ?")
-    .get(stripeSubscriptionId) as SubscriptionRow | undefined;
+    .prepare("SELECT * FROM subscriptions WHERE dodo_subscription_id = ?")
+    .get(dodoSubscriptionId) as SubscriptionRow | undefined;
   return sub ?? null;
 }
 
@@ -131,13 +160,13 @@ export function transitionSubscription(
 }
 
 /**
- * Update Stripe fields on a subscription
+ * Update Dodo payment fields on a subscription
  */
-export function updateStripeFields(
+export function updateDodoFields(
   subscriptionId: string,
   fields: {
-    stripeCustomerId?: string;
-    stripeSubscriptionId?: string;
+    dodoCustomerId?: string;
+    dodoSubscriptionId?: string;
     currentPeriodStart?: string;
     currentPeriodEnd?: string;
     cancelAtPeriodEnd?: boolean;
@@ -147,13 +176,13 @@ export function updateStripeFields(
   const updates: string[] = [];
   const values: unknown[] = [];
 
-  if (fields.stripeCustomerId !== undefined) {
-    updates.push("stripe_customer_id = ?");
-    values.push(fields.stripeCustomerId);
+  if (fields.dodoCustomerId !== undefined) {
+    updates.push("dodo_customer_id = ?");
+    values.push(fields.dodoCustomerId);
   }
-  if (fields.stripeSubscriptionId !== undefined) {
-    updates.push("stripe_subscription_id = ?");
-    values.push(fields.stripeSubscriptionId);
+  if (fields.dodoSubscriptionId !== undefined) {
+    updates.push("dodo_subscription_id = ?");
+    values.push(fields.dodoSubscriptionId);
   }
   if (fields.currentPeriodStart !== undefined) {
     updates.push("current_period_start = ?");
@@ -179,15 +208,14 @@ export function updateStripeFields(
 }
 
 // ============================================================================
-// STRIPE CHECKOUT
+// DODO PAYMENTS CHECKOUT
 // ============================================================================
 
 /**
- * Create a Stripe Checkout Session for a new subscription.
+ * Create a Dodo Payments checkout session for a new subscription.
  * Returns the checkout URL for the user to complete payment.
  *
- * NOTE: Stripe SDK will be initialized lazily when needed.
- * In development/testing, this returns a mock checkout URL.
+ * In development/testing without API key, returns a mock checkout URL.
  */
 export async function createCheckoutSession(
   userId: string,
@@ -202,14 +230,12 @@ export async function createCheckoutSession(
 
   auditLog(userId, AuditEventType.CHECKOUT_STARTED, { subscriptionId: sub.id });
 
-  // In development or if Stripe isn't configured, return a mock
-  if (
-    !config.stripe.secretKey ||
-    config.stripe.secretKey === "sk_test_placeholder"
-  ) {
-    console.log("[Billing] Stripe not configured, returning mock checkout");
+  // In development or if Dodo isn't configured, return a mock
+  if (!config.dodo.apiKey || config.dodo.apiKey === "placeholder") {
+    console.log(
+      "[Billing] Dodo Payments not configured, returning mock checkout",
+    );
 
-    // Simulate immediate payment success for development
     const mockSessionId = `mock_session_${uuidv4()}`;
 
     return {
@@ -218,66 +244,41 @@ export async function createCheckoutSession(
     };
   }
 
-  // Real Stripe integration
-  const stripe = await getStripe();
-  const session = await stripe.checkout.sessions.create({
-    mode: "subscription",
-    customer_email: userEmail,
-    line_items: [
+  // Real Dodo Payments integration
+  const session = await dodoRequest<{
+    payment_link: string;
+    payment_id: string;
+    customer: { customer_id: string };
+  }>("POST", "/payments", {
+    billing: { currency: "EUR" },
+    product_cart: [
       {
-        price: config.stripe.priceId,
+        product_id: config.dodo.productId,
         quantity: 1,
       },
     ],
-    metadata: {
-      userId,
-      subscriptionId: sub.id,
+    customer: {
+      email: userEmail,
     },
-    success_url: config.stripe.successUrl + "?session_id={CHECKOUT_SESSION_ID}",
-    cancel_url: config.stripe.cancelUrl,
+    payment_link: true,
+    return_url: config.dodo.successUrl,
+    metadata: {
+      user_id: userId,
+      subscription_id: sub.id,
+    },
   });
 
-  // Store the Stripe customer reference
-  if (session.customer) {
-    updateStripeFields(sub.id, {
-      stripeCustomerId:
-        typeof session.customer === "string"
-          ? session.customer
-          : session.customer.id,
+  // Store the Dodo customer reference
+  if (session.customer?.customer_id) {
+    updateDodoFields(sub.id, {
+      dodoCustomerId: session.customer.customer_id,
     });
   }
 
   return {
-    checkoutUrl: session.url!,
-    sessionId: session.id,
+    checkoutUrl: session.payment_link,
+    sessionId: session.payment_id,
   };
-}
-
-/**
- * Create a Stripe Customer Portal session for subscription management
- */
-export async function createPortalSession(
-  userId: string,
-): Promise<{ portalUrl: string }> {
-  const sub = getSubscription(userId);
-  if (!sub?.stripe_customer_id) {
-    throw new Error("No Stripe customer found for this user");
-  }
-
-  if (
-    !config.stripe.secretKey ||
-    config.stripe.secretKey === "sk_test_placeholder"
-  ) {
-    return { portalUrl: "#mock-portal" };
-  }
-
-  const stripe = await getStripe();
-  const session = await stripe.billingPortal.sessions.create({
-    customer: sub.stripe_customer_id,
-    return_url: config.stripe.cancelUrl, // Return to app
-  });
-
-  return { portalUrl: session.url };
 }
 
 // ============================================================================
@@ -319,6 +320,39 @@ export function getSubscriptionStatus(
         status === SubscriptionStatus.PROVISIONED_PENDING_CONFIRM,
     },
   };
+}
+
+// ============================================================================
+// WEBHOOK SIGNATURE VERIFICATION
+// ============================================================================
+
+/**
+ * Verify Dodo Payments webhook signature (HMAC-SHA256).
+ * Dodo sends: webhook-signature: v1,<base64-signature>
+ */
+export function verifyDodoWebhookSignature(
+  rawBody: string,
+  signatureHeader: string,
+  secret: string,
+): boolean {
+  try {
+    // Parse "v1,<base64-signature>" format
+    const parts = signatureHeader.split(",");
+    if (parts.length < 2 || parts[0] !== "v1") return false;
+    const receivedSig = parts[1];
+
+    const expected = crypto
+      .createHmac("sha256", secret)
+      .update(rawBody)
+      .digest("base64");
+
+    return crypto.timingSafeEqual(
+      Buffer.from(receivedSig, "base64"),
+      Buffer.from(expected, "base64"),
+    );
+  } catch {
+    return false;
+  }
 }
 
 // ============================================================================
@@ -374,19 +408,4 @@ export function markWebhookProcessed(
     `INSERT OR IGNORE INTO webhook_events (event_id, event_type, result)
      VALUES (?, ?, ?)`,
   ).run(eventId, eventType, result ? JSON.stringify(result) : null);
-}
-
-// ============================================================================
-// STRIPE LAZY INIT
-// ============================================================================
-
-let stripeInstance: any = null;
-
-async function getStripe() {
-  if (!stripeInstance) {
-    // Dynamic import so we don't blow up if stripe isn't installed yet
-    const { default: Stripe } = await import("stripe");
-    stripeInstance = new Stripe(config.stripe.secretKey);
-  }
-  return stripeInstance;
 }

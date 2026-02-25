@@ -43,6 +43,39 @@ function getCachedMetadata(imdbId: string): CinemetaMetadata | null {
 }
 
 /**
+ * Batch-fetch cached metadata for multiple IMDB IDs in a single query.
+ * Returns a Map of imdbId → metadata (only cache hits).
+ */
+export function getCachedMetadataBatch(
+  imdbIds: string[],
+): Map<string, CinemetaMetadata> {
+  const result = new Map<string, CinemetaMetadata>();
+  if (imdbIds.length === 0) return result;
+
+  const db = getDb();
+  const placeholders = imdbIds.map(() => "?").join(",");
+  const rows = db
+    .prepare(
+      `SELECT imdb_id, metadata_json FROM metadata_cache
+       WHERE imdb_id IN (${placeholders}) AND expires_at > datetime('now')`,
+    )
+    .all(...imdbIds) as { imdb_id: string; metadata_json: string }[];
+
+  for (const row of rows) {
+    try {
+      result.set(
+        row.imdb_id,
+        JSON.parse(row.metadata_json) as CinemetaMetadata,
+      );
+    } catch {
+      // skip malformed cache entries
+    }
+  }
+
+  return result;
+}
+
+/**
  * Cache metadata in database
  */
 function cacheMetadata(
@@ -293,6 +326,7 @@ export function clearExpiredMetadataCache(): void {
 
 export default {
   getMetadata,
+  getCachedMetadataBatch,
   searchContent,
   getPopular,
   getSeriesEpisodes,

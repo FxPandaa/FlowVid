@@ -11,7 +11,14 @@ import { Router, Request, Response } from "express";
 import { v4 as uuidv4 } from "uuid";
 import { getDb } from "../database/index.js";
 import { authenticate } from "../middleware/auth.js";
-import { asyncHandler } from "../middleware/errorHandler.js";
+import { asyncHandler, validateBody } from "../middleware/errorHandler.js";
+import {
+  syncLibrarySchema,
+  syncHistorySchema,
+  syncCollectionsSchema,
+  syncSettingsSchema,
+  syncAllSchema,
+} from "../utils/validation.js";
 
 const router = Router();
 
@@ -85,15 +92,11 @@ router.get(
  */
 router.post(
   "/library",
+  validateBody(syncLibrarySchema),
   asyncHandler(async (req: Request, res: Response) => {
     const { library } = req.body as { library: any[] };
     const pid = resolveProfileId(req);
     const db = getDb();
-
-    if (!Array.isArray(library)) {
-      res.status(400).json({ success: false, error: "Invalid library data" });
-      return;
-    }
 
     db.transaction(() => {
       // Delete existing entries for this user+profile, then insert fresh
@@ -196,15 +199,11 @@ router.get(
  */
 router.post(
   "/history",
+  validateBody(syncHistorySchema),
   asyncHandler(async (req: Request, res: Response) => {
     const { history } = req.body as { history: any[] };
     const pid = resolveProfileId(req);
     const db = getDb();
-
-    if (!Array.isArray(history)) {
-      res.status(400).json({ success: false, error: "Invalid history data" });
-      return;
-    }
 
     db.transaction(() => {
       db.prepare(
@@ -294,17 +293,11 @@ router.get(
  */
 router.post(
   "/collections",
+  validateBody(syncCollectionsSchema),
   asyncHandler(async (req: Request, res: Response) => {
     const { collections } = req.body as { collections: any[] };
     const pid = resolveProfileId(req);
     const db = getDb();
-
-    if (!Array.isArray(collections)) {
-      res
-        .status(400)
-        .json({ success: false, error: "Invalid collections data" });
-      return;
-    }
 
     // Clear existing collections for this user+profile and replace with client data
     db.prepare(
@@ -374,15 +367,11 @@ router.get(
  */
 router.post(
   "/settings",
+  validateBody(syncSettingsSchema),
   asyncHandler(async (req: Request, res: Response) => {
     const { settings } = req.body as { settings: Record<string, any> };
     const pid = resolveProfileId(req);
     const db = getDb();
-
-    if (!settings || typeof settings !== "object") {
-      res.status(400).json({ success: false, error: "Invalid settings data" });
-      return;
-    }
 
     if (pid) {
       const existing = db
@@ -545,6 +534,7 @@ router.get(
  */
 router.post(
   "/all",
+  validateBody(syncAllSchema),
   asyncHandler(async (req: Request, res: Response) => {
     const { library, history, collections, settings } = req.body;
     const pid = resolveProfileId(req);

@@ -12,10 +12,10 @@
  *
  * Flow:
  *   NOT_SUBSCRIBED
- *     → PAID_PENDING_PROVISION       (Stripe payment succeeds)
+ *     → PAID_PENDING_PROVISION       (Dodo payment succeeds)
  *     → PROVISIONED_PENDING_CONFIRM  (TorBox user created, awaiting email confirm)
  *     → ACTIVE                        (TorBox API token acquired)
- *     → PAST_DUE                      (Stripe payment fails)
+ *     → PAST_DUE                      (Dodo payment fails)
  *     → CANCELED                      (User cancels / payment timeout)
  *     → EXPIRED                       (Period ends without renewal)
  */
@@ -46,8 +46,8 @@ export enum TorBoxUserStatus {
 export interface SubscriptionRow {
   id: string;
   user_id: string;
-  stripe_customer_id: string | null;
-  stripe_subscription_id: string | null;
+  dodo_customer_id: string | null;
+  dodo_subscription_id: string | null;
   status: SubscriptionStatus;
   plan: string;
   current_period_start: string | null;

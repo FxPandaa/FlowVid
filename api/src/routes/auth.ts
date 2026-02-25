@@ -4,7 +4,7 @@
  */
 
 import { Router, Request, Response } from "express";
-import bcrypt from "bcryptjs";
+import bcrypt from "bcrypt";
 import { v4 as uuidv4 } from "uuid";
 import { getDb } from "../database/index.js";
 import {
@@ -48,49 +48,43 @@ router.post(
     const { email, password } = req.body as { email: string; password: string };
     const db = getDb();
 
-    // Check if email already exists
-    const existing = db
-      .prepare("SELECT id FROM users WHERE email = ?")
-      .get(email.toLowerCase());
-    if (existing) {
-      throw new ConflictError("Email already registered");
-    }
-
-    // Hash password
+    // Hash password before transaction (async, don't block inside tx)
     const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
 
-    // Create user
+    // Atomic registration: check + insert in a single transaction
     const userId = uuidv4();
-    db.prepare(
-      `
-      INSERT INTO users (id, email, password_hash)
-      VALUES (?, ?, ?)
-    `,
-    ).run(userId, email.toLowerCase(), passwordHash);
-
-    // Create default preferences
-    db.prepare(
-      `
-      INSERT INTO user_preferences (user_id)
-      VALUES (?)
-    `,
-    ).run(userId);
-
-    // Generate tokens
     const tokens = generateTokens(userId, email.toLowerCase());
-
-    // Store refresh token hash
     const refreshTokenHash = hashToken(tokens.refreshToken);
     const refreshExpiresAt = new Date(
       Date.now() + 30 * 24 * 60 * 60 * 1000,
     ).toISOString();
 
-    db.prepare(
-      `
-      INSERT INTO refresh_tokens (id, user_id, token_hash, expires_at)
-      VALUES (?, ?, ?, ?)
-    `,
-    ).run(uuidv4(), userId, refreshTokenHash, refreshExpiresAt);
+    const registerTx = db.transaction(() => {
+      // Check if email already exists (inside tx to prevent race)
+      const existing = db
+        .prepare("SELECT id FROM users WHERE email = ?")
+        .get(email.toLowerCase());
+      if (existing) {
+        throw new ConflictError("Email already registered");
+      }
+
+      // Create user
+      db.prepare(
+        `INSERT INTO users (id, email, password_hash) VALUES (?, ?, ?)`,
+      ).run(userId, email.toLowerCase(), passwordHash);
+
+      // Create default preferences
+      db.prepare(`INSERT INTO user_preferences (user_id) VALUES (?)`).run(
+        userId,
+      );
+
+      // Store refresh token hash
+      db.prepare(
+        `INSERT INTO refresh_tokens (id, user_id, token_hash, expires_at) VALUES (?, ?, ?, ?)`,
+      ).run(uuidv4(), userId, refreshTokenHash, refreshExpiresAt);
+    });
+
+    registerTx();
 
     res.status(201).json({
       success: true,
@@ -126,10 +120,7 @@ router.post(
     // Find user
     const user = db
       .prepare(
-        `
-      SELECT id, email, password_hash, debrid_provider, debrid_key_valid, created_at
-      FROM users WHERE email = ?
-    `,
+        `SELECT id, email, password_hash, created_at FROM users WHERE email = ?`,
       )
       .get(email.toLowerCase()) as User | undefined;
 
@@ -188,57 +179,56 @@ router.post(
     const { refreshToken } = req.body as { refreshToken: string };
     const db = getDb();
 
-    // Verify the refresh token
+    // Verify the JWT refresh token signature
     const { userId } = verifyRefreshToken(refreshToken);
-
-    // Check if token exists in database
     const tokenHash = hashToken(refreshToken);
-    const storedToken = db
-      .prepare(
-        `
-      SELECT id FROM refresh_tokens
-      WHERE user_id = ? AND token_hash = ? AND expires_at > datetime('now')
-    `,
-      )
-      .get(userId, tokenHash);
 
-    if (!storedToken) {
-      throw new UnauthorizedError("Invalid or expired refresh token");
-    }
+    // Atomic: verify stored token + delete old + insert new — prevents double-refresh race
+    const refreshTx = db.transaction(() => {
+      // Check if token exists in database
+      const storedToken = db
+        .prepare(
+          `SELECT id FROM refresh_tokens
+           WHERE user_id = ? AND token_hash = ? AND expires_at > datetime('now')`,
+        )
+        .get(userId, tokenHash);
 
-    // Get user
-    const user = db
-      .prepare(
-        `
-      SELECT id, email FROM users WHERE id = ?
-    `,
-      )
-      .get(userId) as { id: string; email: string } | undefined;
+      if (!storedToken) {
+        throw new UnauthorizedError("Invalid or expired refresh token");
+      }
 
-    if (!user) {
-      throw new NotFoundError("User not found");
-    }
+      // Get user
+      const user = db
+        .prepare(`SELECT id, email FROM users WHERE id = ?`)
+        .get(userId) as { id: string; email: string } | undefined;
 
-    // Delete old refresh token
-    db.prepare("DELETE FROM refresh_tokens WHERE token_hash = ?").run(
-      tokenHash,
-    );
+      if (!user) {
+        throw new NotFoundError("User not found");
+      }
 
-    // Generate new tokens
-    const tokens = generateTokens(user.id, user.email);
+      // Delete old refresh token
+      db.prepare("DELETE FROM refresh_tokens WHERE token_hash = ?").run(
+        tokenHash,
+      );
 
-    // Store new refresh token
-    const newRefreshTokenHash = hashToken(tokens.refreshToken);
-    const refreshExpiresAt = new Date(
-      Date.now() + 30 * 24 * 60 * 60 * 1000,
-    ).toISOString();
+      // Generate new tokens
+      const tokens = generateTokens(user.id, user.email);
 
-    db.prepare(
-      `
-      INSERT INTO refresh_tokens (id, user_id, token_hash, expires_at)
-      VALUES (?, ?, ?, ?)
-    `,
-    ).run(uuidv4(), user.id, newRefreshTokenHash, refreshExpiresAt);
+      // Store new refresh token
+      const newRefreshTokenHash = hashToken(tokens.refreshToken);
+      const refreshExpiresAt = new Date(
+        Date.now() + 30 * 24 * 60 * 60 * 1000,
+      ).toISOString();
+
+      db.prepare(
+        `INSERT INTO refresh_tokens (id, user_id, token_hash, expires_at)
+         VALUES (?, ?, ?, ?)`,
+      ).run(uuidv4(), user.id, newRefreshTokenHash, refreshExpiresAt);
+
+      return tokens;
+    });
+
+    const tokens = refreshTx();
 
     res.json({
       success: true,

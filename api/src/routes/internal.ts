@@ -23,6 +23,7 @@ import {
   type TorBoxUserRow,
 } from "../services/billing/types.js";
 import { UnauthorizedError, NotFoundError } from "../utils/errors.js";
+import crypto from "crypto";
 
 const router = Router();
 
@@ -44,7 +45,12 @@ function operatorAuth(req: Request, _res: Response, next: NextFunction): void {
     ? authHeader.slice(7)
     : authHeader;
 
-  if (!token || token !== key) {
+  if (
+    !token ||
+    !key ||
+    token.length !== key.length ||
+    !crypto.timingSafeEqual(Buffer.from(token), Buffer.from(key))
+  ) {
     throw new UnauthorizedError("Invalid operator API key");
   }
 
@@ -321,6 +327,32 @@ router.get(
     const logs = db.prepare(query).all(...params);
 
     res.json({ success: true, data: logs });
+  }),
+);
+
+// ============================================================================
+// DATABASE BACKUP
+// ============================================================================
+
+/**
+ * POST /internal/backup
+ * Create a SQLite backup using better-sqlite3's .backup() API
+ * Returns the backup file path on success
+ */
+router.post(
+  "/backup",
+  asyncHandler(async (_req: Request, res: Response) => {
+    const db = getDb();
+    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+    const backupPath = `${config.database.path}.backup-${timestamp}`;
+
+    await db.backup(backupPath);
+
+    res.json({
+      success: true,
+      message: "Database backup created",
+      data: { path: backupPath, timestamp: new Date().toISOString() },
+    });
   }),
 );
 

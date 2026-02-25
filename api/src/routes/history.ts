@@ -9,7 +9,10 @@ import { getDb } from "../database/index.js";
 import { authenticate } from "../middleware/auth.js";
 import { asyncHandler, validateBody } from "../middleware/errorHandler.js";
 import { updateHistorySchema } from "../utils/validation.js";
-import { getMetadata } from "../services/metadata/index.js";
+import {
+  getMetadata,
+  getCachedMetadataBatch,
+} from "../services/metadata/index.js";
 import { MediaType } from "../types/index.js";
 import type { WatchHistoryEntry } from "../types/index.js";
 
@@ -54,13 +57,20 @@ router.get(
       )
       .get(req.userId) as { count: number };
 
-    // Calculate progress percentage and fetch metadata
+    // Batch-fetch metadata from cache in one query (eliminates N+1 HTTP calls)
+    const imdbIds = items.map((item) => item.imdb_id);
+    const cachedMeta = getCachedMetadataBatch(imdbIds);
+
+    // Calculate progress percentage and enrich with metadata
     const itemsWithMetadata = await Promise.all(
       items.map(async (item) => {
         const progressPercent =
           item.duration_seconds > 0
             ? Math.round((item.progress_seconds / item.duration_seconds) * 100)
             : 0;
+
+        const cached = cachedMeta.get(item.imdb_id);
+        if (cached) return { ...item, progressPercent, metadata: cached };
 
         try {
           const mediaType = item.season ? MediaType.SERIES : MediaType.MOVIE;
@@ -156,54 +166,26 @@ router.post(
       };
     const db = getDb();
 
-    // Upsert watch history
-    const existing = db
-      .prepare(
-        `
-      SELECT id FROM watch_history 
-      WHERE user_id = ? AND imdb_id = ? 
-        AND (season IS ? OR season = ?)
-        AND (episode IS ? OR episode = ?)
+    // Atomic upsert — INSERT or UPDATE on conflict (no race condition)
+    db.prepare(
+      `
+      INSERT INTO watch_history
+        (id, user_id, imdb_id, season, episode, progress_seconds, duration_seconds)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(user_id, imdb_id, season, episode) DO UPDATE SET
+        progress_seconds = excluded.progress_seconds,
+        duration_seconds = excluded.duration_seconds,
+        last_watched_at = datetime('now')
     `,
-      )
-      .get(
-        req.userId,
-        imdbId,
-        season ?? null,
-        season ?? null,
-        episode ?? null,
-        episode ?? null,
-      ) as { id: string } | undefined;
-
-    if (existing) {
-      // Update existing
-      db.prepare(
-        `
-        UPDATE watch_history 
-        SET progress_seconds = ?,
-            duration_seconds = ?,
-            last_watched_at = datetime('now')
-        WHERE id = ?
-      `,
-      ).run(progressSeconds, durationSeconds, existing.id);
-    } else {
-      // Insert new
-      db.prepare(
-        `
-        INSERT INTO watch_history 
-          (id, user_id, imdb_id, season, episode, progress_seconds, duration_seconds)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-      `,
-      ).run(
-        uuidv4(),
-        req.userId,
-        imdbId,
-        season ?? null,
-        episode ?? null,
-        progressSeconds,
-        durationSeconds,
-      );
-    }
+    ).run(
+      uuidv4(),
+      req.userId,
+      imdbId,
+      season ?? null,
+      episode ?? null,
+      progressSeconds,
+      durationSeconds,
+    );
 
     res.json({
       success: true,

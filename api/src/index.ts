@@ -12,12 +12,15 @@
 
 import express, { Express, Request, Response } from "express";
 import cors from "cors";
+import compression from "compression";
+import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import config, { validateConfig } from "./config/index.js";
 import {
   initDatabase,
   closeDatabase,
   cleanupExpiredCache,
+  getDb,
 } from "./database/index.js";
 import { errorHandler, notFoundHandler } from "./middleware/errorHandler.js";
 import {
@@ -42,6 +45,12 @@ import {
 // ============================================================================
 
 const app: Express = express();
+
+// Trust first proxy (nginx / Cloudflare) so rate-limit sees real client IPs
+app.set("trust proxy", 1);
+
+// Security headers (X-Content-Type-Options, Strict-Transport-Security, hides X-Powered-By, etc.)
+app.use(helmet());
 
 /**
  * Initialize the application
@@ -73,15 +82,29 @@ app.use(
         return;
       }
 
-      // Check if origin is allowed
+      // Always allow Tauri scheme
+      if (origin.startsWith("tauri://")) {
+        callback(null, true);
+        return;
+      }
+
+      // Check configured origins
+      if (config.cors.origins.includes(origin)) {
+        callback(null, true);
+        return;
+      }
+
+      // Allow localhost only in development
       if (
-        config.cors.origins.includes(origin) ||
-        origin.startsWith("tauri://") ||
-        origin.startsWith("http://localhost") ||
-        origin.startsWith("https://localhost")
+        config.server.isDevelopment &&
+        (origin.startsWith("http://localhost") ||
+          origin.startsWith("https://localhost"))
       ) {
         callback(null, true);
-      } else if (config.server.isDevelopment) {
+        return;
+      }
+
+      if (config.server.isDevelopment) {
         // Allow all origins in development
         callback(null, true);
       } else {
@@ -94,13 +117,16 @@ app.use(
   }),
 );
 
-// Parse JSON bodies
-app.use(express.json({ limit: "1mb" }));
+// Gzip compression — reduces sync payloads by ~70-80% for large libraries
+app.use(compression());
+
+// Parse JSON bodies (2mb to handle large libraries with full metadata)
+app.use(express.json({ limit: "2mb" }));
 
 // Parse URL-encoded bodies
-app.use(express.urlencoded({ extended: true, limit: "1mb" }));
+app.use(express.urlencoded({ extended: true, limit: "2mb" }));
 
-// Rate limiting
+// Rate limiting — global
 const limiter = rateLimit({
   windowMs: config.rateLimit.windowMs,
   max: config.rateLimit.maxRequests,
@@ -111,11 +137,22 @@ const limiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
-  // Skip rate limiting in development
-  skip: () => config.server.isDevelopment,
 });
 
 app.use(limiter);
+
+// Stricter rate limiter for auth endpoints (brute-force protection)
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10, // 10 attempts per window per IP
+  message: {
+    success: false,
+    error: "Too many login attempts, please try again later",
+    code: "AUTH_RATE_LIMIT_EXCEEDED",
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 // Request logging in development
 if (config.server.isDevelopment) {
@@ -129,14 +166,26 @@ if (config.server.isDevelopment) {
 // ROUTES
 // ============================================================================
 
-// Health check
+// Health check — verifies database connectivity
 app.get("/health", (_req: Request, res: Response) => {
-  res.json({
-    success: true,
-    status: "healthy",
-    timestamp: new Date().toISOString(),
-    version: "1.0.0",
-  });
+  try {
+    const db = getDb();
+    db.prepare("SELECT 1").get();
+    res.json({
+      success: true,
+      status: "healthy",
+      timestamp: new Date().toISOString(),
+      version: "1.0.0",
+    });
+  } catch (error) {
+    res.status(503).json({
+      success: false,
+      status: "degraded",
+      timestamp: new Date().toISOString(),
+      version: "1.0.0",
+      error: "Database check failed",
+    });
+  }
 });
 
 // API info
@@ -158,8 +207,8 @@ app.get("/", (_req: Request, res: Response) => {
   });
 });
 
-// Mount routes
-app.use("/auth", authRoutes);
+// Mount routes (auth gets stricter rate limiter)
+app.use("/auth", authLimiter, authRoutes);
 app.use("/user", userRoutes);
 app.use("/user/library", libraryRoutes);
 app.use("/user/history", historyRoutes);
@@ -259,6 +308,16 @@ async function startServer(): Promise<void> {
 
     process.on("SIGINT", shutdown);
     process.on("SIGTERM", shutdown);
+
+    // Crash handlers — log and exit so PM2/systemd can restart
+    process.on("unhandledRejection", (reason) => {
+      console.error("Unhandled promise rejection:", reason);
+    });
+    process.on("uncaughtException", (error) => {
+      console.error("Uncaught exception:", error);
+      // Exit so the process manager restarts cleanly
+      process.exit(1);
+    });
   } catch (error) {
     console.error("❌ Failed to start server:", error);
     process.exit(1);

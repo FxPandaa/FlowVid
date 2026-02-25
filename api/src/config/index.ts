@@ -75,17 +75,17 @@ export const config = {
     baseUrl: "https://v3-cinemeta.strem.io",
   },
 
-  // Stripe Configuration (billing)
-  stripe: {
-    secretKey: getEnvVar("STRIPE_SECRET_KEY", "sk_test_placeholder"),
-    webhookSecret: getEnvVar("STRIPE_WEBHOOK_SECRET", "whsec_placeholder"),
-    priceId: getEnvVar("STRIPE_PRICE_ID", "price_placeholder"),
+  // Dodo Payments Configuration (Merchant of Record — no KVK needed)
+  dodo: {
+    apiKey: getEnvVar("DODO_API_KEY", "placeholder"),
+    webhookSecret: getEnvVar("DODO_WEBHOOK_SECRET", "placeholder"),
+    productId: getEnvVar("DODO_PRODUCT_ID", "placeholder"),
     successUrl: getEnvVar(
-      "STRIPE_SUCCESS_URL",
+      "DODO_SUCCESS_URL",
       "http://localhost:1420/settings?payment=success",
     ),
     cancelUrl: getEnvVar(
-      "STRIPE_CANCEL_URL",
+      "DODO_CANCEL_URL",
       "http://localhost:1420/settings?payment=canceled",
     ),
   },
@@ -141,13 +141,13 @@ export function validateConfig(): void {
     }
   }
 
-  // Stripe should be configured in production
+  // Dodo Payments should be configured in production
   if (config.server.isProduction) {
-    if (config.stripe.secretKey === "sk_test_placeholder") {
-      errors.push("STRIPE_SECRET_KEY must be set in production");
+    if (config.dodo.apiKey === "placeholder") {
+      errors.push("DODO_API_KEY must be set in production");
     }
-    if (config.stripe.webhookSecret === "whsec_placeholder") {
-      errors.push("STRIPE_WEBHOOK_SECRET must be set in production");
+    if (config.dodo.webhookSecret === "placeholder") {
+      errors.push("DODO_WEBHOOK_SECRET must be set in production");
     }
   }
 

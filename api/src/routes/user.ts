@@ -4,7 +4,7 @@
  */
 
 import { Router, Request, Response } from "express";
-import bcrypt from "bcryptjs";
+import bcrypt from "bcrypt";
 import { getDb } from "../database/index.js";
 import { authenticate } from "../middleware/auth.js";
 import { asyncHandler, validateBody } from "../middleware/errorHandler.js";
