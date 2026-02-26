@@ -122,26 +122,12 @@ export const useSubscriptionStore = create<SubscriptionState>()((set) => ({
     }
   },
 
+  // Portal is handled by Dodo Payments directly — no longer needed
   openPortal: async () => {
-    try {
-      const response = await fetch(`${API_URL}/billing/portal`, {
-        method: "POST",
-        headers: getAuthHeaders(),
-      });
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || "Failed to open portal");
-      }
-
-      const data = await response.json();
-      return data.data.portalUrl;
-    } catch (error) {
-      set({
-        error: error instanceof Error ? error.message : "Failed to open portal",
-      });
-      return null;
-    }
+    console.warn(
+      "[Billing] Portal is managed by Dodo Payments — no self-hosted portal",
+    );
+    return null;
   },
 
   refreshTorBox: async () => {

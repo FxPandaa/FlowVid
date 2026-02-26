@@ -50,12 +50,16 @@ export const useAuthStore = create<AuthState>()(
           const data = await response.json();
 
           if (!response.ok) {
-            throw new Error(data.error || "Login failed");
+            throw new Error(data.error || data.message || "Login failed");
           }
 
+          // API returns { success, data: { user, tokens: { accessToken, refreshToken } } }
+          const userData = data.data?.user || data.user;
+          const token = data.data?.tokens?.accessToken || data.token;
+
           set({
-            user: data.user,
-            token: data.token,
+            user: userData,
+            token,
             isAuthenticated: true,
             isLoading: false,
           });
@@ -81,12 +85,18 @@ export const useAuthStore = create<AuthState>()(
           const data = await response.json();
 
           if (!response.ok) {
-            throw new Error(data.error || "Registration failed");
+            throw new Error(
+              data.error || data.message || "Registration failed",
+            );
           }
 
+          // API returns { success, data: { user, tokens: { accessToken, refreshToken } } }
+          const userData = data.data?.user || data.user;
+          const token = data.data?.tokens?.accessToken || data.token;
+
           set({
-            user: data.user,
-            token: data.token,
+            user: userData,
+            token,
             isAuthenticated: true,
             isLoading: false,
           });
