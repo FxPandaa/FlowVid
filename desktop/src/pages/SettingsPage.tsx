@@ -8,9 +8,11 @@ import {
 } from "../stores";
 import { useAuthStore } from "../stores/authStore";
 import { debridService } from "../services/debrid";
+import { tmdbService } from "../services/metadata/tmdb";
 import { SUBTITLE_LANGUAGES } from "../utils/subtitleLanguages";
 import { scrapers } from "../services/scraping/scrapers";
 import { useFeatureGate } from "../hooks/useFeatureGate";
+import { useUpdateChecker } from "../hooks/useUpdateChecker";
 import { UpgradePrompt } from "../components/UpgradePrompt";
 import {
   Globe,
@@ -74,6 +76,11 @@ export function SettingsPage() {
     setPreferHearingImpaired,
     setSubtitleAppearance,
     setBlurUnwatchedEpisodes,
+    tmdbCustomApiKey,
+    tmdbUseCustomKey,
+    setTmdbCustomApiKey,
+    setTmdbUseCustomKey,
+    clearTmdbCache,
     resetSettings,
   } = useSettingsStore();
 
@@ -94,6 +101,45 @@ export function SettingsPage() {
   const hasManagedTorBox =
     subscription?.tier === "FlowVid_plus" &&
     subscription?.torbox?.status === "active";
+
+  // TMDB custom key state
+  const [tmdbKeyInput, setTmdbKeyInput] = useState(tmdbCustomApiKey || "");
+  const [tmdbValidating, setTmdbValidating] = useState(false);
+  const [tmdbValidation, setTmdbValidation] = useState<boolean | null>(null);
+  const [tmdbCacheCleared, setTmdbCacheCleared] = useState(false);
+
+  const handleTmdbSaveKey = async () => {
+    if (!tmdbKeyInput.trim()) return;
+    setTmdbValidating(true);
+    setTmdbValidation(null);
+    try {
+      const valid = await tmdbService.validateApiKey(tmdbKeyInput.trim());
+      setTmdbValidation(valid);
+      if (valid) {
+        setTmdbCustomApiKey(tmdbKeyInput.trim());
+        setTmdbUseCustomKey(true);
+        tmdbService.clearCache();
+      }
+    } catch {
+      setTmdbValidation(false);
+    } finally {
+      setTmdbValidating(false);
+    }
+  };
+
+  const handleTmdbRemoveKey = () => {
+    setTmdbCustomApiKey("");
+    setTmdbUseCustomKey(false);
+    setTmdbKeyInput("");
+    setTmdbValidation(null);
+    tmdbService.clearCache();
+  };
+
+  const handleTmdbClearCache = () => {
+    clearTmdbCache();
+    setTmdbCacheCleared(true);
+    setTimeout(() => setTmdbCacheCleared(false), 2000);
+  };
 
   const handleApiKeyChange = (service: string, value: string) => {
     setApiKeyInputs((prev) => ({ ...prev, [service]: value }));
@@ -442,6 +488,112 @@ export function SettingsPage() {
         </div>
       </section>
 
+      {/* TMDB Metadata */}
+      <section className="settings-section">
+        <h2>TMDB Metadata</h2>
+        <p className="section-description">
+          TMDB provides rich metadata like cast photos, trailers, production
+          companies, and recommendations. A built-in API key is included —
+          provide your own for better rate limits.
+        </p>
+
+        <div className="setting-item">
+          <div className="setting-info">
+            <label>Use Custom API Key</label>
+            <p>
+              {tmdbUseCustomKey && tmdbCustomApiKey
+                ? "Using your custom TMDB API key"
+                : "Currently using built-in API key"}
+            </p>
+          </div>
+          <button
+            className={`toggle ${tmdbUseCustomKey ? "active" : ""}`}
+            onClick={() => {
+              if (tmdbUseCustomKey) {
+                handleTmdbRemoveKey();
+              } else if (tmdbCustomApiKey) {
+                setTmdbUseCustomKey(true);
+                tmdbService.clearCache();
+              }
+            }}
+            disabled={!tmdbUseCustomKey && !tmdbCustomApiKey}
+          >
+            <span className="toggle-handle" />
+          </button>
+        </div>
+
+        <div className="setting-item">
+          <div className="setting-info">
+            <label>Custom API Key</label>
+            <p>
+              Get a free key at{" "}
+              <a
+                href="https://www.themoviedb.org/settings/api"
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ color: "var(--primary)" }}
+              >
+                themoviedb.org
+              </a>
+            </p>
+          </div>
+          <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+            <input
+              type="text"
+              className="input"
+              placeholder="Enter TMDB API key (v3)"
+              value={tmdbKeyInput}
+              onChange={(e) => {
+                setTmdbKeyInput(e.target.value);
+                setTmdbValidation(null);
+              }}
+              style={{ width: "260px" }}
+            />
+            <button
+              className="btn btn-primary btn-sm"
+              onClick={handleTmdbSaveKey}
+              disabled={tmdbValidating || !tmdbKeyInput.trim()}
+            >
+              {tmdbValidating ? "Validating..." : "Save"}
+            </button>
+            {tmdbUseCustomKey && tmdbCustomApiKey && (
+              <button
+                className="btn btn-ghost btn-sm danger"
+                onClick={handleTmdbRemoveKey}
+              >
+                Remove
+              </button>
+            )}
+          </div>
+        </div>
+
+        {tmdbValidation === true && (
+          <div className="update-status update-current">
+            <Check size={14} />
+            <span>API key is valid and saved</span>
+          </div>
+        )}
+        {tmdbValidation === false && (
+          <div className="update-status update-error">
+            <XCircle size={14} />
+            <span>Invalid API key — please check and try again</span>
+          </div>
+        )}
+
+        <div className="setting-item">
+          <div className="setting-info">
+            <label>Clear Metadata Cache</label>
+            <p>Force reload all TMDB data on next visit</p>
+          </div>
+          <button
+            className="btn btn-secondary btn-sm"
+            onClick={handleTmdbClearCache}
+          >
+            {tmdbCacheCleared ? "Cleared!" : "Clear Cache"}
+          </button>
+        </div>
+      </section>
+
       {/* Subtitles */}
       <section className="settings-section">
         <h2>Subtitles</h2>
@@ -783,6 +935,12 @@ export function SettingsPage() {
         </div>
       </section>
 
+      {/* About & Updates */}
+      <section className="settings-section">
+        <h2>About</h2>
+        <AboutSection />
+      </section>
+
       {/* Reset */}
       <section className="settings-section">
         <h2>Reset</h2>
@@ -884,6 +1042,68 @@ export function SettingsPage() {
 // ============================================================================
 // SUBSCRIPTION SECTION
 // ============================================================================
+
+function AboutSection() {
+  const { checkForUpdates, isChecking, result, error, currentVersion } =
+    useUpdateChecker();
+
+  return (
+    <>
+      <div className="settings-row">
+        <div className="settings-row-info">
+          <label>Version</label>
+          <p>FlowVid v{currentVersion}</p>
+        </div>
+        <button
+          className="btn btn-secondary"
+          onClick={checkForUpdates}
+          disabled={isChecking}
+        >
+          {isChecking ? "Checking..." : "Check for Updates"}
+        </button>
+      </div>
+
+      {result && !result.hasUpdate && (
+        <div className="update-status update-current">
+          <Check size={14} />
+          <span>You're up to date!</span>
+        </div>
+      )}
+
+      {result && result.hasUpdate && (
+        <div
+          className={`update-status ${result.forceUpdate ? "update-force" : "update-available"}`}
+        >
+          <span>
+            {result.forceUpdate
+              ? `⚠️ Critical update required: v${result.latestVersion}`
+              : `Update available: v${result.latestVersion}`}
+          </span>
+          {result.notes && (
+            <p className="update-notes">{result.notes}</p>
+          )}
+          {result.storeUrl && (
+            <a
+              href={result.storeUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn btn-primary btn-sm"
+            >
+              Download Update
+            </a>
+          )}
+        </div>
+      )}
+
+      {error && (
+        <div className="update-status update-error">
+          <XCircle size={14} />
+          <span>{error}</span>
+        </div>
+      )}
+    </>
+  );
+}
 
 function SubscriptionSection() {
   const { isAuthenticated } = useAuthStore();

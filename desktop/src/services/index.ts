@@ -1,9 +1,20 @@
 export { cinemetaService } from "./metadata";
+export { tmdbService } from "./metadata";
 export type {
   MediaItem,
   MovieDetails,
   SeriesDetails,
   Episode,
+  TmdbEnrichedData,
+  TmdbCastMember,
+  TmdbCrewMember,
+  TmdbTrailer,
+  TmdbProductionCompany,
+  TmdbNetwork,
+  TmdbRecommendation,
+  TmdbPersonDetails,
+  TmdbPersonCredit,
+  TmdbEpisodeRating,
 } from "./metadata";
 
 export { searchTorrents, scrapingEngine } from "./scraping";
@@ -23,3 +34,6 @@ export type {
   SubtitleTrack as EmbeddedSubtitleTrack,
   EmbeddedPlayerState,
 } from "./embeddedMpvService";
+
+export { skipIntroService } from "./skipIntro";
+export type { SkipSegment } from "./skipIntro";

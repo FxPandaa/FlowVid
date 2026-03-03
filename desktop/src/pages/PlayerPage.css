@@ -43,7 +43,44 @@
   align-items: center;
   justify-content: center;
   gap: 14px;
-  background: rgba(0, 0, 0, 0.9);
+  background: #000;
+  z-index: 50;
+}
+
+.player-loading-backdrop {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0.35;
+  pointer-events: none;
+  filter: blur(4px);
+}
+
+.player-loading-logo {
+  position: relative;
+  max-width: min(320px, 50vw);
+  max-height: 120px;
+  object-fit: contain;
+  animation: logoFadeInOut 2s ease-in-out infinite;
+  z-index: 1;
+}
+
+.player-loading-title {
+  position: relative;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  animation: logoFadeInOut 2s ease-in-out infinite;
+  z-index: 1;
+}
+
+@keyframes logoFadeInOut {
+  0%   { opacity: 0.2; }
+  50%  { opacity: 1; }
+  100% { opacity: 0.2; }
 }
 
 .player-loading p {
@@ -674,4 +711,48 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* ===== Skip Intro Button ===== */
+.skip-intro-btn {
+  position: absolute;
+  bottom: 100px;
+  right: 40px;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 10px 20px;
+  border-radius: var(--radius-md, 8px);
+  cursor: pointer;
+  transition:
+    background 0.2s,
+    transform 0.15s;
+  animation: skip-intro-slide-in 0.3s ease;
+}
+
+.skip-intro-btn:hover {
+  background: rgba(255, 255, 255, 0.25);
+  transform: scale(1.03);
+}
+
+.skip-intro-btn:active {
+  transform: scale(0.97);
+}
+
+@keyframes skip-intro-slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }

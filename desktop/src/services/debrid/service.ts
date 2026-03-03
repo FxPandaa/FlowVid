@@ -24,8 +24,8 @@ interface StreamCache {
   timestamp: number;
 }
 
-// Cache expires after 30 minutes
-const CACHE_TTL = 30 * 60 * 1000;
+// Cache expires after 10 minutes (debrid URLs can expire quickly)
+const CACHE_TTL = 10 * 60 * 1000;
 
 export class DebridService {
   private provider: DebridProvider | null = null;
@@ -98,23 +98,35 @@ export class DebridService {
     return results;
   }
 
+  // Clear the stream URL cache (e.g. when URLs expire)
+  clearStreamCache(): void {
+    this.streamCache.clear();
+    console.log("Stream URL cache cleared");
+  }
+
   // Get a streamable link for a torrent
-  async getStreamLink(torrent: TorrentResult): Promise<StreamLink> {
+  async getStreamLink(torrent: TorrentResult, forceRefresh = false): Promise<StreamLink> {
     try {
       const provider = this.ensureProvider();
 
-      // Check cache first
+      // Check cache first (unless forceRefresh is requested)
       const cacheKey = torrent.infoHash;
-      const cached = this.streamCache.get(cacheKey);
-      if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-        console.log("Using cached stream URL for", torrent.title);
-        return {
-          url: cached.url,
-          filename: cached.filename,
-          filesize: cached.filesize,
-          quality: cached.quality,
-          isInstant: true,
-        };
+      if (!forceRefresh) {
+        const cached = this.streamCache.get(cacheKey);
+        if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+          console.log("Using cached stream URL for", torrent.title);
+          return {
+            url: cached.url,
+            filename: cached.filename,
+            filesize: cached.filesize,
+            quality: cached.quality,
+            isInstant: true,
+          };
+        }
+      } else {
+        // Bust the cache entry so a fresh link is fetched
+        this.streamCache.delete(cacheKey);
+        console.log("Force-refreshing stream URL for", torrent.title);
       }
 
       // Check if it has a magnet URI

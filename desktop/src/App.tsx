@@ -7,6 +7,7 @@ import {
   PlayerPage,
   LibraryPage,
   SettingsPage,
+  CalendarPage,
   LoginPage,
   ProfileSelectPage,
 } from "./pages";
@@ -89,6 +90,7 @@ function App() {
               element={<PlayerPage />}
             />
             <Route path="library" element={<LibraryPage />} />
+            <Route path="calendar" element={<CalendarPage />} />
             <Route path="settings" element={<SettingsPage />} />
           </Route>
         </Routes>

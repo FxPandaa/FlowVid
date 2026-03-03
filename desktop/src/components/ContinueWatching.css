@@ -40,10 +40,11 @@
   gap: 14px;
   overflow-x: auto;
   overflow-y: visible;
-  padding: 8px 0;
-  scroll-behavior: smooth;
+  padding: 8px 24px;
   scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
+  mask-image: linear-gradient(to right, transparent, black 24px, black calc(100% - 24px), transparent);
+  -webkit-mask-image: linear-gradient(to right, transparent, black 24px, black calc(100% - 24px), transparent);
 }
 
 .continue-watching-list::-webkit-scrollbar {
@@ -156,21 +157,24 @@
   pointer-events: none;
 }
 
-/* Progress Bar */
+/* Progress Bar — pill-shaped, inset from edges */
 .continue-progress {
   position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 3px;
-  background: rgba(0, 0, 0, 0.5);
-  z-index: 2;
+  bottom: 8px;
+  left: 8px;
+  right: 8px;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: var(--radius-full);
+  z-index: 4;
+  overflow: hidden;
 }
 
 .continue-progress-fill {
   height: 100%;
   background: var(--primary);
-  border-radius: 0 2px 2px 0;
+  border-radius: var(--radius-full);
+  transition: width 0.3s ease;
 }
 
 /* Info */
@@ -207,7 +211,7 @@
 /* Delete Button */
 .delete-button {
   position: absolute;
-  top: 8px;
+  top: 40px;
   right: 8px;
   width: 26px;
   height: 26px;

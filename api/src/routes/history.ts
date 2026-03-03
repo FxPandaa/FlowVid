@@ -7,8 +7,8 @@ import { Router, Request, Response } from "express";
 import { v4 as uuidv4 } from "uuid";
 import { getDb } from "../database/index.js";
 import { authenticate } from "../middleware/auth.js";
-import { asyncHandler, validateBody } from "../middleware/errorHandler.js";
-import { updateHistorySchema } from "../utils/validation.js";
+import { asyncHandler, validateBody, validateParams } from "../middleware/errorHandler.js";
+import { updateHistorySchema, imdbIdParamSchema } from "../utils/validation.js";
 import {
   getMetadata,
   getCachedMetadataBatch,
@@ -207,6 +207,7 @@ router.post(
  */
 router.get(
   "/:imdbId",
+  validateParams(imdbIdParamSchema),
   asyncHandler(async (req: Request, res: Response) => {
     const imdbId = req.params.imdbId as string;
     const { season, episode } = req.query;
@@ -248,6 +249,7 @@ router.get(
  */
 router.delete(
   "/:imdbId",
+  validateParams(imdbIdParamSchema),
   asyncHandler(async (req: Request, res: Response) => {
     const imdbId = req.params.imdbId as string;
     const { season, episode } = req.query;

@@ -92,6 +92,51 @@
   font-size: 11px;
 }
 
+/* Watched badge */
+.media-card-watched-badge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: rgba(16, 185, 129, 0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+/* Remove / delete button */
+.media-card-remove-btn {
+  position: absolute;
+  top: 40px;
+  right: 8px;
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 50%;
+  color: rgba(255, 255, 255, 0.7);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity var(--transition-fast), background var(--transition-fast);
+  z-index: 10;
+}
+
+.media-card:hover .media-card-remove-btn {
+  opacity: 1;
+}
+
+.media-card-remove-btn:hover {
+  background: rgba(239, 68, 68, 0.85);
+  color: white;
+}
+
 /* Card info */
 .media-card-info {
   padding: 10px 2px;

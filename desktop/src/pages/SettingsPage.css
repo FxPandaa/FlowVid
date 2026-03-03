@@ -789,3 +789,65 @@
   vertical-align: middle;
   letter-spacing: 0.3px;
 }
+
+/* About & Updates */
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 10px 0;
+}
+
+.settings-row-info label {
+  font-size: 14px;
+  font-weight: 600;
+  display: block;
+  margin-bottom: 2px;
+}
+
+.settings-row-info p {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin: 0;
+}
+
+.update-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: var(--radius-md, 8px);
+  font-size: 13px;
+  margin-top: 8px;
+}
+
+.update-current {
+  background: rgba(34, 197, 94, 0.08);
+  color: #22c55e;
+}
+
+.update-available {
+  background: rgba(59, 130, 246, 0.08);
+  color: #3b82f6;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.update-force {
+  background: rgba(239, 68, 68, 0.08);
+  color: #ef4444;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.update-error {
+  background: rgba(239, 68, 68, 0.06);
+  color: #ef4444;
+}
+
+.update-notes {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin: 4px 0 0;
+}

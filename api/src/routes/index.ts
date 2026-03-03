@@ -12,3 +12,4 @@ export { default as syncRoutes } from "./sync.js";
 export { default as profileRoutes } from "./profiles.js";
 export { default as billingRoutes } from "./billing.js";
 export { default as internalRoutes } from "./internal.js";
+export { default as updateRoutes } from "./updates.js";

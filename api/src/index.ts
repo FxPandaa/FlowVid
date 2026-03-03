@@ -11,6 +11,8 @@
  */
 
 import express, { Express, Request, Response } from "express";
+import { existsSync } from "fs";
+import { resolve } from "path";
 import cors from "cors";
 import compression from "compression";
 import helmet from "helmet";
@@ -33,12 +35,17 @@ import {
   profileRoutes,
   billingRoutes,
   internalRoutes,
+  updateRoutes,
 } from "./routes/index.js";
 import { clearExpiredMetadataCache } from "./services/metadata/index.js";
 import {
   startProvisioningWorker,
   stopProvisioningWorker,
 } from "./services/provisioning/worker.js";
+import {
+  startBackupScheduler,
+  stopBackupScheduler,
+} from "./services/backup/index.js";
 
 // ============================================================================
 // APPLICATION SETUP
@@ -51,6 +58,26 @@ app.set("trust proxy", 1);
 
 // Security headers (X-Content-Type-Options, Strict-Transport-Security, hides X-Powered-By, etc.)
 app.use(helmet());
+
+// ============================================================================
+// CLOUDFLARE TUNNEL HARDENING
+// ============================================================================
+
+/**
+ * When CLOUDFLARE_TUNNEL=true, every request that arrives through the tunnel
+ * carries the CF-Connecting-IP header with the real visitor IP.
+ * We normalise this into `req.realIp` so rate-limiters and audit logs use it.
+ */
+if (config.server.cloudflareTunnel) {
+  app.use((req: Request, _res: Response, next) => {
+    // CF-Connecting-IP is the single real client IP (not a chain)
+    const cfIp = req.headers["cf-connecting-ip"];
+    if (typeof cfIp === "string") {
+      (req as unknown as Record<string, unknown>).realIp = cfIp;
+    }
+    next();
+  });
+}
 
 /**
  * Initialize the application
@@ -127,6 +154,14 @@ app.use(express.json({ limit: "2mb" }));
 app.use(express.urlencoded({ extended: true, limit: "2mb" }));
 
 // Rate limiting — global
+const rateLimitKeyGenerator = config.server.cloudflareTunnel
+  ? (req: Request) => {
+      // Prefer CF-Connecting-IP (real visitor IP set by Cloudflare)
+      const cfIp = req.headers["cf-connecting-ip"];
+      return (typeof cfIp === "string" ? cfIp : req.ip) ?? "unknown";
+    }
+  : undefined; // default express-rate-limit key (req.ip)
+
 const limiter = rateLimit({
   windowMs: config.rateLimit.windowMs,
   max: config.rateLimit.maxRequests,
@@ -137,6 +172,7 @@ const limiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
+  ...(rateLimitKeyGenerator && { keyGenerator: rateLimitKeyGenerator }),
 });
 
 app.use(limiter);
@@ -152,6 +188,7 @@ const authLimiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
+  ...(rateLimitKeyGenerator && { keyGenerator: rateLimitKeyGenerator }),
 });
 
 // Request logging in development
@@ -160,6 +197,30 @@ if (config.server.isDevelopment) {
     console.log(`${new Date().toISOString()} ${req.method} ${req.path}`);
     next();
   });
+}
+
+// ============================================================================
+// STATIC WEBSITE (optional)
+// ============================================================================
+
+// Serve a static marketing / landing page site from WEBSITE_DIR if configured.
+// API routes below take priority — static files only serve when no API route matches.
+if (config.website.dir) {
+  const websiteRoot = resolve(config.website.dir);
+  if (existsSync(websiteRoot)) {
+    // Serve static assets with long cache for immutable files
+    app.use(
+      express.static(websiteRoot, {
+        maxAge: "7d",
+        index: ["index.html"],
+      }),
+    );
+    console.log(`🌐 Serving website from: ${websiteRoot}`);
+  } else {
+    console.warn(
+      `⚠️ WEBSITE_DIR="${config.website.dir}" does not exist — static hosting disabled`,
+    );
+  }
 }
 
 // ============================================================================
@@ -175,37 +236,40 @@ app.get("/health", (_req: Request, res: Response) => {
       success: true,
       status: "healthy",
       timestamp: new Date().toISOString(),
-      version: "1.0.0",
+      version: config.updates.appVersion,
     });
   } catch (error) {
     res.status(503).json({
       success: false,
       status: "degraded",
       timestamp: new Date().toISOString(),
-      version: "1.0.0",
+      version: config.updates.appVersion,
       error: "Database check failed",
     });
   }
 });
 
-// API info
-app.get("/", (_req: Request, res: Response) => {
-  res.json({
-    name: "FlowVid API",
-    version: "1.0.0",
-    description: "Account sync backend for cross-platform streaming",
-    endpoints: {
-      auth: "/auth",
-      user: "/user",
-      library: "/user/library",
-      history: "/user/history",
-      metadata: "/metadata",
-      sync: "/sync",
-      billing: "/billing",
-      internal: "/internal",
-    },
+// API info (only when no website is configured — otherwise it would shadow index.html)
+if (!config.website.dir) {
+  app.get("/", (_req: Request, res: Response) => {
+    res.json({
+      name: "FlowVid API",
+      version: config.updates.appVersion,
+      description: "Account sync backend for cross-platform streaming",
+      endpoints: {
+        auth: "/auth",
+        user: "/user",
+        library: "/user/library",
+        history: "/user/history",
+        metadata: "/metadata",
+        sync: "/sync",
+        billing: "/billing",
+        updates: "/updates",
+        internal: "/internal",
+      },
+    });
   });
-});
+}
 
 // Mount routes (auth gets stricter rate limiter)
 app.use("/auth", authLimiter, authRoutes);
@@ -216,7 +280,20 @@ app.use("/metadata", metadataRoutes);
 app.use("/sync", syncRoutes);
 app.use("/profiles", profileRoutes);
 app.use("/billing", billingRoutes);
+app.use("/updates", updateRoutes);
 app.use("/internal", internalRoutes);
+
+// SPA fallback — serve index.html for unmatched GET requests when website is configured
+// (allows client-side routing to work for the marketing site)
+if (config.website.dir) {
+  const websiteRoot = resolve(config.website.dir);
+  const indexPath = resolve(websiteRoot, "index.html");
+  if (existsSync(indexPath)) {
+    app.get("*", (_req: Request, res: Response) => {
+      res.sendFile(indexPath);
+    });
+  }
+}
 
 // 404 handler
 app.use(notFoundHandler);
@@ -256,13 +333,15 @@ async function startServer(): Promise<void> {
   try {
     await initialize();
 
-    const server = app.listen(config.server.port, () => {
+    const server = app.listen(config.server.port, config.server.host, () => {
       console.log(`
 ╔════════════════════════════════════════════════════════════════╗
-║                    🎬 FlowVid API v1.0.0                       ║
+║                    🎬 FlowVid API v${config.updates.appVersion.padEnd(37)}║
 ╠════════════════════════════════════════════════════════════════╣
-║  Server running at: http://localhost:${config.server.port.toString().padEnd(25)}║
+║  Server running at: http://${config.server.host}:${config.server.port.toString().padEnd(25)}║
 ║  Environment: ${config.server.nodeEnv.padEnd(43)}║
+║  Cloudflare Tunnel: ${(config.server.cloudflareTunnel ? "enabled" : "disabled").padEnd(37)}║
+║  Automated Backups: ${(config.backup.enabled ? `every ${config.backup.intervalHours}h` : "disabled").padEnd(37)}║
 ╠════════════════════════════════════════════════════════════════╣
 ║  Endpoints:                                                    ║
 ║    POST /auth/register     - Create account                    ║
@@ -273,6 +352,7 @@ async function startServer(): Promise<void> {
 ║    GET  /metadata/search   - Search movies/series              ║
 ║    GET  /billing/status    - Subscription status               ║
 ║    POST /billing/checkout  - Start payment                     ║
+║    GET  /updates/check     - App update check                  ║
 ║    GET  /internal/health   - Operator health check             ║
 ╠════════════════════════════════════════════════════════════════╣
 ║  NOTE: Scraping & debrid handled in apps, not server           ║
@@ -286,12 +366,16 @@ async function startServer(): Promise<void> {
     // Start the billing provisioning worker
     startProvisioningWorker();
 
+    // Start automated backup scheduler
+    startBackupScheduler();
+
     // Graceful shutdown
     const shutdown = async () => {
       console.log("\n🛑 Shutting down gracefully...");
 
       clearInterval(cleanupInterval);
       stopProvisioningWorker();
+      stopBackupScheduler();
 
       server.close(() => {
         closeDatabase();

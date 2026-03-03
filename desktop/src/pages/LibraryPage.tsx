@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { useLibraryStore } from "../stores";
@@ -13,6 +13,8 @@ import {
   Tv,
   Play,
   X,
+  ChevronLeft,
+  ChevronRight,
 } from "../components/Icons";
 import { MediaItem } from "../services";
 import { useValidatedImage } from "../utils/useValidatedImage";
@@ -33,6 +35,7 @@ export function LibraryPage() {
     createCollection,
     deleteCollection,
     renameCollection,
+    removeFromLibrary,
   } = useLibraryStore();
 
   const [showCollections, setShowCollections] = useState(false);
@@ -40,6 +43,24 @@ export function LibraryPage() {
   const [editingCollectionId, setEditingCollectionId] = useState<string | null>(
     null,
   );
+
+  const cwListRef = useRef<HTMLDivElement>(null);
+
+  const handleCwWheel = useCallback((e: WheelEvent) => {
+    const el = cwListRef.current;
+    if (!el || e.deltaY === 0) return;
+    const isScrollable = el.scrollWidth > el.clientWidth;
+    if (!isScrollable) return;
+    e.preventDefault();
+    el.scrollBy({ left: e.deltaY * 1.5, behavior: 'smooth' });
+  }, []);
+
+  useEffect(() => {
+    const el = cwListRef.current;
+    if (!el) return;
+    el.addEventListener("wheel", handleCwWheel, { passive: false });
+    return () => el.removeEventListener("wheel", handleCwWheel);
+  }, [handleCwWheel]);
 
   const filteredLibrary = getFilteredLibrary();
 
@@ -83,6 +104,8 @@ export function LibraryPage() {
   // Deduplicated continue watching (most recent episode per series)
   const continueItems = watchHistory
     .filter((item, index, self) => {
+      // Skip finished items (≥95% watched)
+      if (item.progress >= 95) return false;
       if (item.type === "movie") return true;
       return self.findIndex((h) => h.imdbId === item.imdbId) === index;
     })
@@ -228,10 +251,26 @@ export function LibraryPage() {
           </div>
 
           {continueItems.length > 0 ? (
-            <div className="library-cw-list">
-              {continueItems.map((item) => (
-                <LibraryCWCard key={item.id} item={item} />
-              ))}
+            <div className="library-cw-scroll-wrapper">
+              <button
+                className="cw-scroll-btn cw-scroll-left"
+                onClick={() => cwListRef.current?.scrollBy({ left: -300, behavior: 'smooth' })}
+                aria-label="Scroll left"
+              >
+                <ChevronLeft size={18} />
+              </button>
+              <div className="library-cw-list" ref={cwListRef}>
+                {continueItems.map((item) => (
+                  <LibraryCWCard key={item.id} item={item} />
+                ))}
+              </div>
+              <button
+                className="cw-scroll-btn cw-scroll-right"
+                onClick={() => cwListRef.current?.scrollBy({ left: 300, behavior: 'smooth' })}
+                aria-label="Scroll right"
+              >
+                <ChevronRight size={18} />
+              </button>
             </div>
           ) : (
             <div className="library-cw-empty">
@@ -252,13 +291,18 @@ export function LibraryPage() {
 
           {libraryItems.length > 0 ? (
             <div className="library-grid">
-              {libraryItems.map((item) => (
-                <MediaCard
-                  key={`${item.type}-${item.id}`}
-                  item={item}
-                  size="large"
-                />
-              ))}
+              {libraryItems.map((item) => {
+                const libItem = filteredLibrary.find((l) => l.imdbId === item.id);
+                return (
+                  <MediaCard
+                    key={`${item.type}-${item.id}`}
+                    item={item}
+                    size="medium"
+                    watched={libItem?.watched}
+                    onRemove={(id) => removeFromLibrary(id)}
+                  />
+                );
+              })}
             </div>
           ) : library.length > 0 ? (
             <div className="library-empty">

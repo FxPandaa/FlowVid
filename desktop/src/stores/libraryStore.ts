@@ -21,6 +21,7 @@ export interface LibraryItem {
   userRating?: number; // 1-10
   notes?: string;
   tags?: string[];
+  watched?: boolean;
 }
 
 export interface WatchHistoryItem {
@@ -98,6 +99,7 @@ interface LibraryState {
   isInLibrary: (imdbId: string) => boolean;
   toggleFavorite: (imdbId: string) => void;
   toggleWatchlist: (imdbId: string) => void;
+  markItemWatched: (imdbId: string) => void;
   setUserRating: (imdbId: string, rating: number) => void;
   updateNotes: (imdbId: string, notes: string) => void;
   addTag: (imdbId: string, tag: string) => void;
@@ -105,6 +107,7 @@ interface LibraryState {
 
   updateWatchProgress: (
     item: Omit<WatchHistoryItem, "id" | "watchedAt">,
+    options?: { localOnly?: boolean },
   ) => void;
   getWatchProgress: (
     imdbId: string,
@@ -258,6 +261,17 @@ export const useLibraryStore = create<LibraryState>()(
         debouncedSync(() => get().syncWithServer());
       },
 
+      markItemWatched: (imdbId: string) => {
+        set((state) => ({
+          library: state.library.map((item) =>
+            item.imdbId === imdbId
+              ? { ...item, watched: true }
+              : item,
+          ),
+        }));
+        debouncedSync(() => get().syncWithServer());
+      },
+
       setUserRating: (imdbId: string, rating: number) => {
         set((state) => ({
           library: state.library.map((item) =>
@@ -300,7 +314,7 @@ export const useLibraryStore = create<LibraryState>()(
         debouncedSync(() => get().syncWithServer());
       },
 
-      updateWatchProgress: (item) => {
+      updateWatchProgress: (item, options) => {
         const newItem: WatchHistoryItem = {
           ...item,
           id: crypto.randomUUID(),
@@ -326,8 +340,11 @@ export const useLibraryStore = create<LibraryState>()(
           };
         });
 
-        // Sync in background
-        debouncedSync(() => get().syncWithServer());
+        // Only sync to server when not local-only (localStorage is updated
+        // automatically by zustand persist middleware on every state change)
+        if (!options?.localOnly) {
+          debouncedSync(() => get().syncWithServer());
+        }
       },
 
       getWatchProgress: (imdbId: string, season?: number, episode?: number) => {

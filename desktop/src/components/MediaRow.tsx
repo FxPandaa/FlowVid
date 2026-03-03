@@ -1,6 +1,7 @@
 import { useRef } from "react";
 import { MediaItem } from "../services/metadata/cinemeta";
 import { MediaCard } from "./MediaCard";
+import { ChevronLeft, ChevronRight } from "./Icons";
 import "./MediaRow.css";
 
 interface MediaRowProps {
@@ -61,25 +62,33 @@ export function MediaRow({
     <section className="media-row">
       <div className="media-row-header">
         <h2 className="media-row-title">{title}</h2>
-        <div className="media-row-nav">
-          <button className="nav-btn" onClick={() => scroll("left")}>
-            ←
-          </button>
-          <button className="nav-btn" onClick={() => scroll("right")}>
-            →
-          </button>
-        </div>
       </div>
 
-      <div className="media-row-items" ref={rowRef}>
-        {items.map((item) => (
-          <MediaCard
-            key={`${item.type}-${item.id}`}
-            item={item}
-            variant={variant}
-            size={size}
-          />
-        ))}
+      <div className="media-row-scroll-wrapper">
+        <button
+          className="media-row-scroll-btn media-row-scroll-left"
+          onClick={() => scroll("left")}
+          aria-label="Scroll left"
+        >
+          <ChevronLeft size={18} />
+        </button>
+        <div className="media-row-items" ref={rowRef}>
+          {items.map((item) => (
+            <MediaCard
+              key={`${item.type}-${item.id}`}
+              item={item}
+              variant={variant}
+              size={size}
+            />
+          ))}
+        </div>
+        <button
+          className="media-row-scroll-btn media-row-scroll-right"
+          onClick={() => scroll("right")}
+          aria-label="Scroll right"
+        >
+          <ChevronRight size={18} />
+        </button>
       </div>
     </section>
   );

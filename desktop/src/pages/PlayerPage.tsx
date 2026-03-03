@@ -9,7 +9,9 @@ import {
   Subtitle,
   createSubtitleBlobUrl,
   adjustSubtitleTiming,
+  skipIntroService,
 } from "../services";
+import type { SkipSegment } from "../services";
 import { useLibraryStore, useSettingsStore } from "../stores";
 import {
   SubtitleSelector,
@@ -19,6 +21,7 @@ import {
   EmbeddedMpvPlayer,
 } from "../components";
 import { parseStreamInfo } from "../utils/streamParser";
+import { embeddedMpvService } from "../services/embeddedMpvService";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -75,8 +78,8 @@ export function PlayerPage() {
   const [audioTracks, setAudioTracks] = useState<AudioTrack[]>([]);
   const [activeAudioTrack, setActiveAudioTrack] = useState<string | null>(null);
 
-  // Player controls
-  const [isPlaying, setIsPlaying] = useState(false);
+  // Player controls — default to true since we autoplay
+  const [isPlaying, setIsPlaying] = useState(true);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(1);
@@ -87,7 +90,18 @@ export function PlayerPage() {
   const [showEpisodeMenu, setShowEpisodeMenu] = useState(false);
   const [seriesEpisodes, setSeriesEpisodes] = useState<any[]>([]);
 
-  const { updateWatchProgress, getWatchProgress } = useLibraryStore();
+  // Tracks how many times we've retried fetching the stream URL (to detect expired links)
+  const [streamRetryCount, setStreamRetryCount] = useState(0);
+
+  // Ref: fire stream-info overlay exactly once per load
+  const playbackReadyFiredRef = useRef(false);
+
+  // Skip intro state
+  const [skipSegments, setSkipSegments] = useState<SkipSegment[]>([]);
+  const [showSkipButton, setShowSkipButton] = useState(false);
+  const activeSkipRef = useRef<SkipSegment | null>(null);
+
+  const { updateWatchProgress, getWatchProgress, removeFromHistory, addToLibrary, isInLibrary, markItemWatched } = useLibraryStore();
   const {
     activeDebridService,
     autoPlay,
@@ -98,9 +112,18 @@ export function PlayerPage() {
     preferredSubtitleLanguage,
   } = useSettingsStore();
 
-  let progressSaveTimeout: ReturnType<typeof setTimeout> | undefined;
   const controlsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isPlayingRef = useRef(false);
+
+  // ── Local-first sync refs ──────────────────────────────────────────────
+  // Always-fresh position/duration for server sync interval (avoids stale closures)
+  const latestPosRef = useRef({ pos: 0, dur: 0 });
+  // Server sync interval handle
+  const serverSyncIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Stable ref to latest saveProgress function (for setInterval / event listeners)
+  const saveProgressRef = useRef<(localOnly?: boolean) => void>(() => {});
+  // Track last MPV local save position
+  const lastMpvLocalSavePos = useRef(0);
 
   // Generate CSS custom properties for subtitle styling (with fallbacks for older settings)
   const subtitleStyles = {
@@ -116,13 +139,15 @@ export function PlayerPage() {
     "--subtitle-bottom-position": `${subtitleAppearance.bottomPosition ?? 10}%`,
   } as React.CSSProperties;
 
-  // Save progress with all preferences
-  const saveProgress = () => {
-    if (!contentDetails || !id || duration === 0) return;
+  // Track whether we already marked this content as finished (prevent duplicate calls)
+  const markedFinishedRef = useRef(false);
 
-    const progress = Math.round((currentTime / duration) * 100);
-    if (progress < 1) return; // Don't save if barely started
+  // Mark content as fully watched: save 100%, remove from CW, add to library
+  const markAsFinished = () => {
+    if (markedFinishedRef.current || !contentDetails || !id) return;
+    markedFinishedRef.current = true;
 
+    // Save final progress = 100
     updateWatchProgress({
       imdbId: id,
       type: type as "movie" | "series",
@@ -131,29 +156,113 @@ export function PlayerPage() {
       backdrop: contentDetails.backdrop || contentDetails.background,
       season: season ? parseInt(season) : undefined,
       episode: episode ? parseInt(episode) : undefined,
-      progress,
-      duration: Math.round(duration),
-      // Save playback preferences for resuming
-      currentTime: Math.round(currentTime),
-      subtitleId: activeSubtitle?.id,
-      subtitleOffset: subtitleOffset,
-      audioTrackId: activeAudioTrack || undefined,
-      // Save torrent source info for instant resume
-      torrentInfoHash: selectedTorrent?.infoHash,
-      torrentTitle: selectedTorrent?.title,
-      torrentQuality: selectedTorrent?.quality,
-      torrentProvider: selectedTorrent?.provider,
+      progress: 100,
+      duration: Math.round(latestPosRef.current.dur || duration),
+      currentTime: Math.round(latestPosRef.current.dur || duration),
     });
+
+    // Remove from continue watching
+    const existing = getWatchProgress(
+      id,
+      season ? parseInt(season) : undefined,
+      episode ? parseInt(episode) : undefined,
+    );
+    if (existing) removeFromHistory(existing.id);
+
+    // Auto-add to library if not already there
+    if (!isInLibrary(id)) {
+      addToLibrary({
+        imdbId: id,
+        type: type as "movie" | "series",
+        title: contentDetails.title,
+        year: contentDetails.year || new Date().getFullYear(),
+        poster: contentDetails.poster,
+        backdrop: contentDetails.backdrop || contentDetails.background,
+        rating: contentDetails.rating,
+        genres: contentDetails.genres,
+        runtime: type === "movie" ? Number(contentDetails.runtime) || undefined : undefined,
+      });
+    }
+
+    // Mark as watched in library
+    markItemWatched(id);
   };
+
+  // Save progress with all preferences
+  // localOnly = true  → saves to localStorage only (via zustand persist), no server sync
+  // localOnly = false → saves to localStorage AND triggers debounced server sync
+  const saveProgress = (localOnly = false) => {
+    // Prefer ref values (always fresh) over state (may be stale in intervals)
+    const pos = latestPosRef.current.pos || currentTime;
+    const dur = latestPosRef.current.dur || duration;
+
+    if (!contentDetails || !id || dur === 0) return;
+
+    const progress = Math.round((pos / dur) * 100);
+    if (progress < 1) return; // Don't save if barely started
+
+    // Auto-mark as finished when reaching ~95%
+    if (progress >= 95) {
+      markAsFinished();
+      return;
+    }
+
+    updateWatchProgress(
+      {
+        imdbId: id,
+        type: type as "movie" | "series",
+        title: contentDetails.title,
+        poster: contentDetails.poster,
+        backdrop: contentDetails.backdrop || contentDetails.background,
+        season: season ? parseInt(season) : undefined,
+        episode: episode ? parseInt(episode) : undefined,
+        progress,
+        duration: Math.round(dur),
+        // Save playback preferences for resuming
+        currentTime: Math.round(pos),
+        subtitleId: activeSubtitle?.id,
+        subtitleOffset: subtitleOffset,
+        audioTrackId: activeAudioTrack || undefined,
+        // Save torrent source info for instant resume
+        torrentInfoHash: selectedTorrent?.infoHash,
+        torrentTitle: selectedTorrent?.title,
+        torrentQuality: selectedTorrent?.quality,
+        torrentProvider: selectedTorrent?.provider,
+      },
+      { localOnly },
+    );
+  };
+
+  // Keep the ref always pointing at the latest version of saveProgress
+  saveProgressRef.current = saveProgress;
 
   useEffect(() => {
     initializePlayer();
 
+    // ── Server sync interval (60 s) ──────────────────────────────────────
+    // Local saves happen every 5 s (free / instant).
+    // This interval pushes to server every 60 s as a safety-net so
+    // cross-device resume is never more than ~1 minute behind.
+    serverSyncIntervalRef.current = setInterval(() => {
+      saveProgressRef.current(false); // false = server sync
+    }, 60_000);
+
+    // ── Visibility-change handler ────────────────────────────────────────
+    // Sync to server when the user switches away (alt-tab, minimize, etc.)
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        saveProgressRef.current(false);
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
     return () => {
-      // Save progress when leaving
+      // Save progress to server when leaving the player
       saveProgress();
       if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
-      clearTimeout(progressSaveTimeout);
+      if (serverSyncIntervalRef.current)
+        clearInterval(serverSyncIntervalRef.current);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [id, season, episode]);
 
@@ -307,6 +416,12 @@ export function PlayerPage() {
   const initializePlayer = async () => {
     setIsLoading(true);
     setError(null);
+    playbackReadyFiredRef.current = false;
+
+    // Pre-initialize MPV in background while we fetch metadata & search
+    if (playerType === "embedded-mpv") {
+      embeddedMpvService.initialize().catch(() => {});
+    }
 
     // Check if debrid is configured first
     if (activeDebridService === "none") {
@@ -475,9 +590,10 @@ export function PlayerPage() {
     }
   };
 
-  const loadStream = async (torrent: TorrentResult, _details?: any) => {
+  const loadStream = async (torrent: TorrentResult, _details?: any, forceRefresh = false) => {
     setSelectedTorrent(torrent);
     setShowSourcePicker(false);
+    if (!forceRefresh) setStreamRetryCount(0);
 
     if (activeDebridService === "none") {
       setError(
@@ -488,38 +604,50 @@ export function PlayerPage() {
     }
 
     try {
-      const streamLink = await debridService.getStreamLink(torrent);
+      const streamLink = await debridService.getStreamLink(torrent, forceRefresh);
       setStreamUrl(streamLink.url);
+      playbackReadyFiredRef.current = false;
 
       // Check if we should use embedded MPV
       if (playerType === "embedded-mpv") {
         setUseEmbeddedMpv(true);
-        setIsLoading(false);
-
-        // Show stream info overlay for 4 seconds (MPV)
-        setShowStreamInfo(true);
+        // Keep isLoading true — cinematic loading screen stays until MPV
+        // sends its first progress update (prevents black flash)
+        // Safety timeout in case onProgress is slow (e.g. very large file)
         setTimeout(() => {
-          setShowStreamInfo(false);
-        }, 4000);
+          if (!playbackReadyFiredRef.current) {
+            playbackReadyFiredRef.current = true;
+            setIsLoading(false);
+          }
+        }, 15_000);
         return;
       }
 
-      setIsLoading(false);
-
-      // Show stream info overlay for 4 seconds
-      setShowStreamInfo(true);
-      setTimeout(() => {
-        setShowStreamInfo(false);
-      }, 4000);
+      // For built-in player: keep isLoading true — stays until onCanPlay fires
 
       // Load subtitles after getting stream
       loadSubtitles();
 
       if (autoPlay) {
         setTimeout(() => {
-          videoRef.current?.play();
+          videoRef.current?.play().catch((err) => {
+            console.error("Auto-play failed:", err);
+            // NotSupportedError on retry = genuine codec issue → switch to MPV
+            if (err.name === "NotSupportedError" && streamRetryCount > 0) {
+              console.warn("Built-in player cannot decode this format, switching to MPV...");
+              setUseEmbeddedMpv(true);
+            }
+          });
         }, 100);
       }
+
+      // Safety timeout: dismiss loading if playback never starts (e.g. very slow CDN)
+      setTimeout(() => {
+        if (!playbackReadyFiredRef.current) {
+          playbackReadyFiredRef.current = true;
+          setIsLoading(false);
+        }
+      }, 20_000);
     } catch (err) {
       console.error("Failed to get stream:", err);
       setError(
@@ -809,6 +937,7 @@ export function PlayerPage() {
 
   const handleSelectSource = (torrent: TorrentResult) => {
     setIsLoading(true);
+    setStreamRetryCount(0);
     loadStream(torrent, location.state?.details);
   };
 
@@ -822,18 +951,23 @@ export function PlayerPage() {
     }
   };
 
-  // Track time updates and save progress every 10 seconds
+  // Track time updates — local save every 5 seconds, server sync is handled
+  // by the 60-second interval + pause/unmount/visibility-change events
   const lastSaveRef = { current: 0 };
 
   const handleTimeUpdate = () => {
     if (videoRef.current) {
       const newTime = videoRef.current.currentTime;
+      const dur = videoRef.current.duration || 0;
       setCurrentTime(newTime);
 
-      // Save progress every 10 seconds
-      if (Math.floor(newTime) - lastSaveRef.current >= 10) {
+      // Keep the position ref fresh for server-sync interval
+      latestPosRef.current = { pos: newTime, dur };
+
+      // Local-only save every 5 seconds of playback
+      if (Math.floor(newTime) - lastSaveRef.current >= 5) {
         lastSaveRef.current = Math.floor(newTime);
-        saveProgress();
+        saveProgress(true); // true = local only
       }
     }
   };
@@ -891,6 +1025,57 @@ export function PlayerPage() {
       return `${h}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
     }
     return `${m}:${s.toString().padStart(2, "0")}`;
+  };
+
+  // ── Skip Intro ──────────────────────────────────────────────────────────
+  // Fetch skip segments for series episodes
+  useEffect(() => {
+    if (type !== "series" || !id || !season || !episode) {
+      setSkipSegments([]);
+      return;
+    }
+    skipIntroService
+      .getSkipSegments(id, parseInt(season), parseInt(episode))
+      .then((segs) => setSkipSegments(segs))
+      .catch(() => setSkipSegments([]));
+  }, [id, type, season, episode]);
+
+  // Show/hide the skip button based on current playback position
+  useEffect(() => {
+    if (skipSegments.length === 0) {
+      setShowSkipButton(false);
+      activeSkipRef.current = null;
+      return;
+    }
+    const intro = skipSegments.find(
+      (s) => s.type === "intro" || s.type === "mixed-intro",
+    );
+    if (!intro) {
+      setShowSkipButton(false);
+      activeSkipRef.current = null;
+      return;
+    }
+    const inRange = currentTime >= intro.startTime && currentTime < intro.endTime;
+    if (inRange) {
+      activeSkipRef.current = intro;
+      setShowSkipButton(true);
+    } else {
+      activeSkipRef.current = null;
+      setShowSkipButton(false);
+    }
+  }, [currentTime, skipSegments]);
+
+  const handleSkipIntro = () => {
+    const seg = activeSkipRef.current;
+    if (!seg) return;
+    if (useEmbeddedMpv) {
+      embeddedMpvService.seek(seg.endTime);
+      setCurrentTime(seg.endTime);
+    } else if (videoRef.current) {
+      videoRef.current.currentTime = seg.endTime;
+      setCurrentTime(seg.endTime);
+    }
+    setShowSkipButton(false);
   };
 
   const handleBack = () => {
@@ -975,6 +1160,7 @@ export function PlayerPage() {
             navigate(-1);
           }}
           onEnded={() => {
+            markAsFinished();
             // Auto-play next episode if enabled
             if (type === "series" && seriesEpisodes.length > 0) {
               const currentEpNum = parseInt(episode || "1");
@@ -982,7 +1168,7 @@ export function PlayerPage() {
                 (e) => e.episodeNumber === currentEpNum + 1,
               );
               if (nextEp) {
-                // Navigate to next episode
+                markedFinishedRef.current = false; // Reset for next episode
                 navigate(
                   `/player/${type}/${id}/${season}/${currentEpNum + 1}`,
                   {
@@ -1002,34 +1188,55 @@ export function PlayerPage() {
             navigate(-1);
           }}
           onProgress={(position, dur) => {
+            // Dismiss cinematic loading screen once MPV is actually playing
+            // (position > 0 means frames are decoding, or dur > 0 means demux started)
+            if (!playbackReadyFiredRef.current && (position > 0 || dur > 0)) {
+              playbackReadyFiredRef.current = true;
+              setIsLoading(false);
+              setShowStreamInfo(true);
+              setTimeout(() => setShowStreamInfo(false), 4000);
+            }
+
             // Update state for display
             setCurrentTime(position);
             setDuration(dur);
-            // Debounced save - save directly with passed values to avoid stale state
-            if (progressSaveTimeout) clearTimeout(progressSaveTimeout);
-            progressSaveTimeout = setTimeout(() => {
+
+            // Keep the position ref fresh for server-sync interval
+            latestPosRef.current = { pos: position, dur };
+
+            // Local-only save every 5 seconds of playback position
+            if (Math.floor(position) - lastMpvLocalSavePos.current >= 5) {
+              lastMpvLocalSavePos.current = Math.floor(position);
               if (!contentDetails || !id || dur === 0) return;
               const progress = Math.round((position / dur) * 100);
               if (progress < 1) return;
-              updateWatchProgress({
-                imdbId: id,
-                type: type as "movie" | "series",
-                title: contentDetails.title,
-                poster: contentDetails.poster,
-                backdrop: contentDetails.backdrop || contentDetails.background,
-                season: season ? parseInt(season) : undefined,
-                episode: episode ? parseInt(episode) : undefined,
-                progress,
-                duration: Math.round(dur),
-                currentTime: Math.round(position),
-                subtitleId: mpvSubtitleId || undefined,
-                subtitleOffset: mpvSubtitleOffset,
-                torrentInfoHash: selectedTorrent?.infoHash,
-                torrentTitle: selectedTorrent?.title,
-                torrentQuality: selectedTorrent?.quality,
-                torrentProvider: selectedTorrent?.provider,
-              });
-            }, 5000);
+              // Auto-mark as finished at ~95%
+              if (progress >= 95) {
+                markAsFinished();
+                return;
+              }
+              updateWatchProgress(
+                {
+                  imdbId: id,
+                  type: type as "movie" | "series",
+                  title: contentDetails.title,
+                  poster: contentDetails.poster,
+                  backdrop: contentDetails.backdrop || contentDetails.background,
+                  season: season ? parseInt(season) : undefined,
+                  episode: episode ? parseInt(episode) : undefined,
+                  progress,
+                  duration: Math.round(dur),
+                  currentTime: Math.round(position),
+                  subtitleId: mpvSubtitleId || undefined,
+                  subtitleOffset: mpvSubtitleOffset,
+                  torrentInfoHash: selectedTorrent?.infoHash,
+                  torrentTitle: selectedTorrent?.title,
+                  torrentQuality: selectedTorrent?.quality,
+                  torrentProvider: selectedTorrent?.provider,
+                },
+                { localOnly: true },
+              );
+            }
           }}
           onError={(err) => {
             console.error("Embedded MPV error:", err);
@@ -1087,10 +1294,31 @@ export function PlayerPage() {
         />
       )}
 
+      {/* Skip Intro button for MPV player */}
+      {useEmbeddedMpv && showSkipButton && (
+        <button className="skip-intro-btn" onClick={handleSkipIntro}>
+          <SkipForward size={14} /> Skip Intro
+        </button>
+      )}
+
       {isLoading && (
         <div className="player-loading">
-          <div className="spinner"></div>
-          <p>{title || "Loading stream..."}</p>
+          {contentDetails?.background || contentDetails?.backdrop ? (
+            <img
+              className="player-loading-backdrop"
+              src={contentDetails.background || contentDetails.backdrop}
+              alt=""
+            />
+          ) : null}
+          {contentDetails?.logo ? (
+            <img
+              className="player-loading-logo"
+              src={contentDetails.logo}
+              alt={contentDetails.title || ""}
+            />
+          ) : (
+            <p className="player-loading-title">{title || "Loading stream..."}</p>
+          )}
         </div>
       )}
 
@@ -1224,8 +1452,53 @@ export function PlayerPage() {
             className="video-player"
             src={streamUrl}
             onClick={togglePlay}
-            onPlay={() => setIsPlaying(true)}
-            onPause={() => setIsPlaying(false)}
+            onPlay={() => {
+              setIsPlaying(true);
+              // Dismiss loading screen on play start (backup for onCanPlay)
+              if (!playbackReadyFiredRef.current) {
+                playbackReadyFiredRef.current = true;
+                setIsLoading(false);
+                setShowStreamInfo(true);
+                setTimeout(() => setShowStreamInfo(false), 4000);
+              }
+            }}
+            onCanPlay={() => {
+              // Dismiss loading screen once enough data is buffered to play
+              if (!playbackReadyFiredRef.current) {
+                playbackReadyFiredRef.current = true;
+                setIsLoading(false);
+                setShowStreamInfo(true);
+                setTimeout(() => setShowStreamInfo(false), 4000);
+              }
+            }}
+            onPause={() => {
+              setIsPlaying(false);
+              // Sync to server on pause so cross-device resume is accurate
+              saveProgress();
+            }}
+            onError={(e) => {
+              const video = e.currentTarget;
+              const mediaError = video.error;
+              console.error("Video element error:", mediaError?.code, mediaError?.message);
+
+              if (!selectedTorrent) return;
+
+              if (streamRetryCount === 0) {
+                // First failure — the cached URL is likely expired.
+                // Clear cache and re-fetch a fresh link from debrid.
+                console.warn("Stream error, retrying with fresh URL (attempt 1)...");
+                setStreamRetryCount(1);
+                setIsLoading(true);
+                loadStream(selectedTorrent, contentDetails, true);
+              } else if (mediaError?.code === MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED) {
+                // Second failure and format/codec error → switch to MPV
+                console.warn("Format not supported by built-in player after retry, switching to MPV...");
+                setUseEmbeddedMpv(true);
+              } else {
+                // Second failure, not codec-related → show error
+                setError(`Playback failed. The stream link may be unavailable. ${mediaError?.message || ""}`);
+              }
+            }}
             onTimeUpdate={handleTimeUpdate}
             onLoadedMetadata={() => {
               const videoDuration = videoRef.current?.duration || 0;
@@ -1282,21 +1555,7 @@ export function PlayerPage() {
               }
             }}
             onEnded={() => {
-              // Save watch progress
-              if (location.state?.details) {
-                const details = location.state.details;
-                updateWatchProgress({
-                  imdbId: details.imdbId,
-                  type: type as "movie" | "series",
-                  title: details.title,
-                  poster: details.poster,
-                  backdrop: details.backdrop || details.background,
-                  season: season ? parseInt(season) : undefined,
-                  episode: episode ? parseInt(episode) : undefined,
-                  progress: 100,
-                  duration: duration,
-                });
-              }
+              markAsFinished();
             }}
           >
             {/* Subtitle track */}
@@ -1325,6 +1584,16 @@ export function PlayerPage() {
             lineHeight={subtitleAppearance.lineHeight ?? 1.4}
             bottomPosition={subtitleAppearance.bottomPosition ?? 10}
           />
+
+          {/* Skip Intro button overlay */}
+          {showSkipButton && (
+            <button
+              className="skip-intro-btn"
+              onClick={handleSkipIntro}
+            >
+              <SkipForward size={14} /> Skip Intro
+            </button>
+          )}
 
           <div
             className={`player-controls ${showControls ? "visible" : ""}`}
@@ -1520,7 +1789,7 @@ export function PlayerPage() {
                           className={`episode-menu-thumbnail ${shouldBlur ? "blur" : ""}`}
                         >
                           {ep.still ? (
-                            <img src={ep.still} alt={ep.name} />
+                            <img src={ep.still} alt={ep.name} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
                           ) : (
                             <div className="episode-placeholder">
                               <Tv size={28} />

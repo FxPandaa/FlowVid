@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { MediaItem } from "../services/metadata/cinemeta";
 import { useValidatedImage } from "../utils/useValidatedImage";
-import { Film, Tv, Play, StarFilled } from "./Icons";
+import { Film, Tv, Play, StarFilled, Check, X } from "./Icons";
 import "./MediaCard.css";
 
 interface MediaCardProps {
@@ -10,6 +10,8 @@ interface MediaCardProps {
   size?: "small" | "medium" | "large";
   variant?: "poster" | "landscape";
   showRating?: boolean;
+  watched?: boolean;
+  onRemove?: (id: string) => void;
 }
 
 export function MediaCard({
@@ -17,6 +19,8 @@ export function MediaCard({
   size = "medium",
   variant = "poster",
   showRating = true,
+  watched = false,
+  onRemove,
 }: MediaCardProps) {
   const linkPath = `/details/${item.type}/${item.id}`;
   const [runtimeLogoError, setRuntimeLogoError] = useState(false);
@@ -128,6 +132,26 @@ export function MediaCard({
             </span>
             <span>{item.rating.toFixed(1)}</span>
           </div>
+        )}
+
+        {watched && (
+          <div className="media-card-watched-badge">
+            <Check size={14} />
+          </div>
+        )}
+
+        {onRemove && (
+          <button
+            className="media-card-remove-btn"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onRemove(item.id);
+            }}
+            title="Remove from Library"
+          >
+            <X size={14} />
+          </button>
         )}
       </div>
 

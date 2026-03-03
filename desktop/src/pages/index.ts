@@ -4,5 +4,6 @@ export { DetailsPage } from "./DetailsPage";
 export { PlayerPage } from "./PlayerPage";
 export { LibraryPage } from "./LibraryPage";
 export { SettingsPage } from "./SettingsPage";
+export { CalendarPage } from "./CalendarPage";
 export { LoginPage } from "./LoginPage";
 export { ProfileSelectPage } from "./ProfileSelectPage";

@@ -32,9 +32,16 @@ function extractToken(req: Request): string | null {
  */
 function verifyToken(token: string): JWTPayload {
   try {
-    const decoded = jwt.verify(token, config.jwt.secret) as JWTPayload;
+    const decoded = jwt.verify(token, config.jwt.secret) as JWTPayload & { type?: string };
+    // Reject refresh tokens — they must only be used at the /auth/refresh endpoint
+    if ((decoded as any).type === "refresh") {
+      throw new UnauthorizedError("Refresh tokens cannot be used for authentication");
+    }
     return decoded;
   } catch (error) {
+    if (error instanceof UnauthorizedError) {
+      throw error;
+    }
     if (error instanceof jwt.TokenExpiredError) {
       throw new UnauthorizedError("Token has expired");
     }

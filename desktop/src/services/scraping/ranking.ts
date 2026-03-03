@@ -113,13 +113,17 @@ const DEFAULT_CONFIG: RankingConfig = {
 // ============================================================================
 
 /**
- * Calculate resolution score (0-30)
+ * Calculate resolution score (0-50)
+ * 4K gets a large bonus so it always sorts above lower resolutions.
  */
 function calculateResolutionScore(
   info: ParsedTorrentInfo,
   config: RankingConfig,
 ): number {
-  const baseScore = info.resolutionRank * 6; // 0-30
+  // Give 4K a decisive lead: 4K=50, 1080p=24, 720p=18, 480p=12, Unknown=6
+  const score4k = 50;
+  const baseScore =
+    info.resolution === "4K" ? score4k : info.resolutionRank * 6; // 0-30 for non-4K
 
   // Bonus if matches preferred resolution
   if (config.preferredResolution !== "any") {

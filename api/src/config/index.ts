@@ -31,9 +31,16 @@ export const config = {
   // Server Configuration
   server: {
     port: getEnvVarInt("PORT", 3000),
+    host: getEnvVar(
+      "BIND_HOST",
+      // Default to 127.0.0.1 when tunnel is enabled (no direct exposure needed)
+      getEnvVar("CLOUDFLARE_TUNNEL", "false") === "true" ? "127.0.0.1" : "0.0.0.0",
+    ),
     nodeEnv: getEnvVar("NODE_ENV", "development"),
     isDevelopment: getEnvVar("NODE_ENV", "development") === "development",
     isProduction: getEnvVar("NODE_ENV", "development") === "production",
+    /** When true, trust CF-Connecting-IP header and restrict /internal to loopback */
+    cloudflareTunnel: getEnvVar("CLOUDFLARE_TUNNEL", "false") === "true",
   },
 
   // JWT Configuration
@@ -62,7 +69,7 @@ export const config = {
   // Rate Limiting
   rateLimit: {
     windowMs: getEnvVarInt("RATE_LIMIT_WINDOW_MS", 15 * 60 * 1000),
-    maxRequests: getEnvVarInt("RATE_LIMIT_MAX_REQUESTS", 100),
+    maxRequests: getEnvVarInt("RATE_LIMIT_MAX_REQUESTS", 300),
   },
 
   // Cache TTL (seconds)
@@ -102,6 +109,30 @@ export const config = {
   // Internal/Operator API
   internal: {
     apiKey: getEnvVar("INTERNAL_API_KEY", ""),
+  },
+
+  // Backup Configuration
+  backup: {
+    enabled: getEnvVar("BACKUP_ENABLED", "true") === "true",
+    dir: getEnvVar("BACKUP_DIR", "./data/backups"),
+    intervalHours: getEnvVarInt("BACKUP_INTERVAL_HOURS", 6),
+    retentionDays: getEnvVarInt("BACKUP_RETENTION_DAYS", 30),
+  },
+
+  // Static Website Directory (leave empty to disable)
+  website: {
+    dir: getEnvVar("WEBSITE_DIR", ""),
+  },
+
+  // App Version & Update Config
+  updates: {
+    appVersion: getEnvVar("APP_VERSION", "1.0.0"),
+    minAppVersion: getEnvVar("MIN_APP_VERSION", "1.0.0"),
+    updateNotes: getEnvVar("UPDATE_NOTES", ""),
+    /** Base URL where Tauri update bundles are hosted (e.g. https://releases.flowvid.com) */
+    tauriUpdateUrl: getEnvVar("TAURI_UPDATE_URL", ""),
+    /** Local directory containing .sig files for Tauri update verification */
+    signatureDir: getEnvVar("TAURI_SIGNATURE_DIR", ""),
   },
 } as const;
 
@@ -149,6 +180,13 @@ export function validateConfig(): void {
     if (config.dodo.webhookSecret === "placeholder") {
       errors.push("DODO_WEBHOOK_SECRET must be set in production");
     }
+  }
+
+  // Internal API key must be set in production
+  if (config.server.isProduction && !config.internal.apiKey) {
+    errors.push(
+      "INTERNAL_API_KEY must be set in production (protects /internal/* operator routes)",
+    );
   }
 
   if (errors.length > 0) {

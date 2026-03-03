@@ -81,6 +81,17 @@ router.post(
       throw new BadRequestError("Profile name is required");
     }
 
+    // Validate input bounds
+    if (name.trim().length > 50) {
+      throw new BadRequestError("Profile name must be 50 characters or less");
+    }
+    if (avatarColor && !/^#[0-9A-Fa-f]{6}$/.test(avatarColor)) {
+      throw new BadRequestError("Invalid avatar color format");
+    }
+    if (avatarIcon && avatarIcon.length > 8) {
+      throw new BadRequestError("Avatar icon too long");
+    }
+
     // Profiles are a FlowVid+ feature — check subscription
     const subStatus = getSubscriptionStatus(req.userId!);
     if (subStatus.status !== SubscriptionStatus.ACTIVE) {

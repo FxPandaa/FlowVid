@@ -8,7 +8,11 @@ import {
   searchTorrents,
   TorrentResult,
   debridService,
+  tmdbService,
+  TmdbEnrichedData,
+  TmdbEpisodeRating,
 } from "../services";
+import { PersonModal } from "../components";
 import { useLibraryStore, useSettingsStore } from "../stores";
 import { parseStreamInfo } from "../utils/streamParser";
 import { useValidatedImage } from "../utils/useValidatedImage";
@@ -26,6 +30,8 @@ import {
   HDR10PlusBadge,
   DolbyAtmosBadge,
   HDRBadge,
+  ChevronLeft,
+  ChevronRight,
 } from "../components/Icons";
 import "./DetailsPage.css";
 
@@ -52,8 +58,18 @@ export function DetailsPage() {
     name: string;
   } | null>(null);
   const [showEpisodePopup, setShowEpisodePopup] = useState(false);
+  const [enrichedData, setEnrichedData] = useState<TmdbEnrichedData | null>(
+    null,
+  );
+  const [episodeRatings, setEpisodeRatings] = useState<
+    Map<number, TmdbEpisodeRating>
+  >(new Map());
+  const [selectedPersonId, setSelectedPersonId] = useState<number | null>(null);
+  const [activeTrailer, setActiveTrailer] = useState<{ key: string; name: string } | null>(null);
 
-  const torrentsRef = useRef<HTMLDivElement>(null);
+  const trailersRef = useRef<HTMLDivElement>(null);
+  const castRef = useRef<HTMLDivElement>(null);
+  const recommendationsRef = useRef<HTMLDivElement>(null);
 
   const {
     isInLibrary,
@@ -61,7 +77,6 @@ export function DetailsPage() {
     removeFromLibrary,
     toggleFavorite,
     toggleWatchlist,
-    setUserRating,
     library,
     collections,
     addToCollection,
@@ -79,13 +94,38 @@ export function DetailsPage() {
     : null;
   const isFavorite = libraryItem?.isFavorite || false;
   const isWatchlist = libraryItem?.watchlist || false;
-  const userRating = libraryItem?.userRating;
 
   useEffect(() => {
     if (id) {
       loadDetails(id);
     }
   }, [id, type]);
+
+  // Fetch TMDB enrichment (cast photos, trailers) in parallel — non-blocking
+  useEffect(() => {
+    if (!id || !type) return;
+    setEnrichedData(null);
+    tmdbService
+      .getEnrichedData(id, type as "movie" | "series")
+      .then((data) => setEnrichedData(data))
+      .catch(() => {});
+  }, [id, type]);
+
+  // Fetch episode ratings for current season from TMDB
+  useEffect(() => {
+    if (!id || type !== "series") return;
+    setEpisodeRatings(new Map());
+    tmdbService
+      .getSeasonRatings(id, "series", selectedSeason)
+      .then((ratings) => {
+        const map = new Map<number, TmdbEpisodeRating>();
+        for (const r of ratings) {
+          map.set(r.episode, r);
+        }
+        setEpisodeRatings(map);
+      })
+      .catch(() => {});
+  }, [id, type, selectedSeason]);
 
   useEffect(() => {
     if (type === "series" && details && "seasons" in details && id) {
@@ -129,7 +169,7 @@ export function DetailsPage() {
   };
 
   const handleSearchTorrents = async (
-    scrollAfter = false,
+    _scrollAfter = false,
     episodeOverride?: { season: number; episode: number },
   ) => {
     if (!details?.imdbId) return;
@@ -157,14 +197,6 @@ export function DetailsPage() {
         } catch (error) {
           console.error("Failed to check instant availability:", error);
         }
-      }
-      if (scrollAfter && results.length > 0) {
-        setTimeout(() => {
-          torrentsRef.current?.scrollIntoView({
-            behavior: "smooth",
-            block: "start",
-          });
-        }, 100);
       }
     } catch (error) {
       console.error("Torrent search failed:", error);
@@ -235,11 +267,6 @@ export function DetailsPage() {
     toggleWatchlist(details.imdbId);
   };
 
-  const handleRatingChange = (rating: number) => {
-    if (!details?.imdbId || !inLibrary) return;
-    setUserRating(details.imdbId, rating);
-  };
-
   const handleToggleCollectionItem = (collectionId: string) => {
     if (!details?.imdbId || !inLibrary) return;
 
@@ -274,6 +301,29 @@ export function DetailsPage() {
 
   const seriesDetails = details as SeriesDetails;
 
+  // ── Helpers for rich metadata display ──
+  const formatCurrency = (amount: number | null) => {
+    if (!amount) return null;
+    if (amount >= 1_000_000_000)
+      return `$${(amount / 1_000_000_000).toFixed(1)}B`;
+    if (amount >= 1_000_000) return `$${(amount / 1_000_000).toFixed(1)}M`;
+    if (amount >= 1_000) return `$${(amount / 1_000).toFixed(0)}K`;
+    return `$${amount.toLocaleString()}`;
+  };
+
+  const formatDate = (dateStr: string | null) => {
+    if (!dateStr) return null;
+    try {
+      return new Date(dateStr).toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      });
+    } catch {
+      return dateStr;
+    }
+  };
+
   return (
     <div className="details-page">
       {/* Full-screen backdrop hero */}
@@ -305,14 +355,29 @@ export function DetailsPage() {
           <div className="details-meta">
             <span className="meta-item">{details.year}</span>
             {details.rating > 0 && (
-              <span className="meta-item">
-                <span className="star">
-                  <StarFilled size={14} />
-                </span>{" "}
+              <span className="meta-item meta-rating-imdb">
+                <img
+                  className="imdb-logo"
+                  src="https://upload.wikimedia.org/wikipedia/commons/6/69/IMDB_Logo_2016.svg"
+                  alt="IMDb"
+                />
                 {details.rating.toFixed(1)}
               </span>
             )}
-            {isMovie &&
+
+            {enrichedData?.runtime && (
+              <span className="meta-item">
+                {(() => {
+                  const h = Math.floor(enrichedData.runtime / 60);
+                  const m = enrichedData.runtime % 60;
+                  return [h > 0 ? `${h}h` : "", m > 0 ? `${m}m` : ""]
+                    .filter(Boolean)
+                    .join(" ");
+                })()}
+              </span>
+            )}
+            {!enrichedData?.runtime &&
+              isMovie &&
               (details as MovieDetails).runtime &&
               (() => {
                 const totalMins = parseInt(
@@ -333,22 +398,23 @@ export function DetailsPage() {
                 {seriesDetails.numberOfSeasons > 1 ? "s" : ""}
               </span>
             )}
+            {enrichedData?.numberOfEpisodes && (
+              <span className="meta-item">
+                {enrichedData.numberOfEpisodes} Episodes
+              </span>
+            )}
             {details.genres &&
               details.genres.slice(0, 3).map((genre) => (
                 <span key={genre} className="meta-item details-meta-genres">
                   {genre}
                 </span>
               ))}
+
+
           </div>
 
-          {details.cast && details.cast.length > 0 && (
-            <div className="details-hero-cast">
-              {details.cast.slice(0, 5).map((name, index) => (
-                <span key={index} className="details-hero-cast-name">
-                  {name}
-                </span>
-              ))}
-            </div>
+          {enrichedData?.tagline && (
+            <p className="details-tagline">{enrichedData.tagline}</p>
           )}
 
           <p className="details-overview">{details.overview}</p>
@@ -358,14 +424,10 @@ export function DetailsPage() {
               className="btn btn-primary"
               onClick={() => {
                 if (isMovie) {
-                  if (torrents.length > 0) {
-                    torrentsRef.current?.scrollIntoView({
-                      behavior: "smooth",
-                      block: "start",
-                    });
-                  } else {
-                    handleSearchTorrents(true);
-                  }
+                  setTorrents([]);
+                  setInstantAvailability(new Map());
+                  setShowEpisodePopup(true);
+                  handleSearchTorrents(false);
                 } else {
                   document
                     .querySelector(".details-episodes")
@@ -425,7 +487,14 @@ export function DetailsPage() {
 
             <button
               className="btn btn-ghost"
-              onClick={() => handleSearchTorrents(true)}
+              onClick={() => {
+                if (isMovie) {
+                  setTorrents([]);
+                  setInstantAvailability(new Map());
+                  setShowEpisodePopup(true);
+                  handleSearchTorrents(false);
+                }
+              }}
               disabled={
                 isSearchingTorrents ||
                 activeDebridService === "none" ||
@@ -453,30 +522,7 @@ export function DetailsPage() {
 
       {/* Scrollable content below the hero */}
       <div className="details-sections">
-        {inLibrary && (
-          <div className="details-section">
-            <div className="details-user-content">
-              <div className="user-rating">
-                <h4>Your Rating</h4>
-                <div className="rating-stars">
-                  {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((star) => (
-                    <button
-                      key={star}
-                      className={`star-btn ${userRating && userRating >= star ? "active" : ""}`}
-                      onClick={() => handleRatingChange(star)}
-                      title={`Rate ${star}/10`}
-                    >
-                      <StarFilled size={14} />
-                    </button>
-                  ))}
-                  {userRating && (
-                    <span className="rating-value">{userRating}/10</span>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
+
 
         {/* Collections - only show if in library */}
         {inLibrary && collections.length > 0 && (
@@ -508,6 +554,113 @@ export function DetailsPage() {
             </div>
           </div>
         )}
+
+        {/* Trailers — from TMDB */}
+        {enrichedData &&
+          enrichedData.trailers.length > 0 && (
+            <div className="details-section">
+              <h2 className="section-title">Trailers</h2>
+              <div className="details-scroll-wrapper">
+                <button
+                  className="details-scroll-btn details-scroll-left"
+                  onClick={() => trailersRef.current?.scrollBy({ left: -400, behavior: 'smooth' })}
+                  aria-label="Scroll left"
+                >
+                  <ChevronLeft size={18} />
+                </button>
+                <div className="trailers-row" ref={trailersRef}>
+                  {enrichedData.trailers.map((trailer) => (
+                  <div
+                    key={trailer.id}
+                    className="trailer-card"
+                    onClick={() => setActiveTrailer({ key: trailer.key, name: trailer.name })}
+                  >
+                    <div className="trailer-thumb">
+                      <img
+                        src={`https://i.ytimg.com/vi/${trailer.key}/mqdefault.jpg`}
+                        alt={trailer.name}
+                        loading="lazy"
+                        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                      />
+                      <div className="trailer-play-overlay trailer-play-always">
+                        <Play size={24} />
+                      </div>
+                    </div>
+                    <span className="trailer-name">{trailer.name}</span>
+                    <span className="trailer-type">
+                      {trailer.type}
+                      {trailer.official ? " · Official" : ""}
+                    </span>
+                  </div>
+                ))}
+              </div>
+                <button
+                  className="details-scroll-btn details-scroll-right"
+                  onClick={() => trailersRef.current?.scrollBy({ left: 400, behavior: 'smooth' })}
+                  aria-label="Scroll right"
+                >
+                  <ChevronRight size={18} />
+                </button>
+              </div>
+            </div>
+          )}
+
+        {/* Cast & Crew — from TMDB (photos + character names) — clickable for person details */}
+        {enrichedData &&
+          enrichedData.cast.length > 0 && (
+            <div className="details-section">
+              <h2 className="section-title">Cast</h2>
+              <div className="details-scroll-wrapper">
+                <button
+                  className="details-scroll-btn details-scroll-left"
+                  onClick={() => castRef.current?.scrollBy({ left: -400, behavior: 'smooth' })}
+                  aria-label="Scroll left"
+                >
+                  <ChevronLeft size={18} />
+                </button>
+                <div className="cast-row" ref={castRef}>
+                  {enrichedData.cast.map((member) => (
+                  <div
+                    key={member.id}
+                    className="cast-card cast-card-clickable"
+                    onClick={() => setSelectedPersonId(member.id)}
+                  >
+                    <div className="cast-photo">
+                      {member.profilePhoto ? (
+                        <img
+                          src={member.profilePhoto}
+                          alt={member.name}
+                          loading="lazy"
+                        />
+                      ) : (
+                        <div className="cast-photo-placeholder">
+                          {member.name
+                            .split(" ")
+                            .map((n) => n[0])
+                            .join("")
+                            .slice(0, 2)}
+                        </div>
+                      )}
+                    </div>
+                    <span className="cast-name">{member.name}</span>
+                    {member.character && (
+                      <span className="cast-character">
+                        {member.character}
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+                <button
+                  className="details-scroll-btn details-scroll-right"
+                  onClick={() => castRef.current?.scrollBy({ left: 400, behavior: 'smooth' })}
+                  aria-label="Scroll right"
+                >
+                  <ChevronRight size={18} />
+                </button>
+              </div>
+            </div>
+          )}
 
         {/* Episodes for series */}
         {!isMovie &&
@@ -543,6 +696,7 @@ export function DetailsPage() {
                   const isWatched = watchProgress && watchProgress.progress > 0;
                   const shouldBlur =
                     blurUnwatchedEpisodes && !isWatched && episode.still;
+                  const epRating = episodeRatings.get(episode.episodeNumber);
 
                   return (
                     <div
@@ -560,7 +714,7 @@ export function DetailsPage() {
                         className={`episode-thumbnail ${shouldBlur ? "episode-thumbnail-blur" : ""}`}
                       >
                         {episode.still ? (
-                          <img src={episode.still} alt={episode.name} />
+                          <img src={episode.still} alt={episode.name} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
                         ) : (
                           <div className="episode-placeholder">
                             <Tv size={28} />
@@ -579,9 +733,22 @@ export function DetailsPage() {
                         )}
                       </div>
                       <div className="episode-info">
-                        <span className="episode-number">
-                          E{episode.episodeNumber}
-                        </span>
+                        <div className="episode-info-header">
+                          <span className="episode-number">
+                            E{episode.episodeNumber}
+                          </span>
+                          {epRating && epRating.rating > 0 && (
+                            <span className="episode-rating">
+                              <StarFilled size={10} />{" "}
+                              {epRating.rating.toFixed(1)}
+                            </span>
+                          )}
+                          {epRating?.runtime && (
+                            <span className="episode-runtime">
+                              {epRating.runtime}m
+                            </span>
+                          )}
+                        </div>
                         <h4 className="episode-name">{episode.name}</h4>
                         {episode.overview && (
                           <p className="episode-overview">{episode.overview}</p>
@@ -590,6 +757,209 @@ export function DetailsPage() {
                     </div>
                   );
                 })}
+              </div>
+            </div>
+          )}
+
+        {/* Networks (TV) — streaming platform logos */}
+        {enrichedData &&
+          enrichedData.networks.length > 0 && (
+            <div className="details-section">
+              <h2 className="section-title">Networks</h2>
+              <div className="logos-row">
+                {enrichedData.networks.map((network) => (
+                  <div key={network.id} className="logo-chip">
+                    {network.logoUrl ? (
+                      <img
+                        src={network.logoUrl}
+                        alt={network.name}
+                        title={network.name}
+                        loading="lazy"
+                      />
+                    ) : (
+                      <span className="logo-chip-text">{network.name}</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+        {/* Production Companies */}
+        {enrichedData &&
+          enrichedData.productionCompanies.length > 0 && (
+            <div className="details-section">
+              <h2 className="section-title">Production</h2>
+              <div className="logos-row">
+                {enrichedData.productionCompanies.map((company) => (
+                  <div key={company.id} className="logo-chip">
+                    {company.logoUrl ? (
+                      <img
+                        src={company.logoUrl}
+                        alt={company.name}
+                        title={company.name}
+                        loading="lazy"
+                      />
+                    ) : (
+                      <span className="logo-chip-text">{company.name}</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+        {/* Additional details — budget, revenue, origin, dates */}
+        {enrichedData &&
+          (enrichedData.budget ||
+            enrichedData.revenue ||
+            enrichedData.originCountry.length > 0 ||
+            enrichedData.firstAirDate ||
+            enrichedData.lastAirDate) && (
+            <div className="details-section">
+              <h2 className="section-title">Details</h2>
+              <div className="details-facts-grid">
+                {enrichedData.originCountry.length > 0 && (
+                  <div className="fact-item">
+                    <span className="fact-label">Origin</span>
+                    <span className="fact-value">
+                      {enrichedData.originCountry.join(", ")}
+                    </span>
+                  </div>
+                )}
+                {enrichedData.originalLanguage && (
+                  <div className="fact-item">
+                    <span className="fact-label">Language</span>
+                    <span className="fact-value">
+                      {enrichedData.originalLanguage.toUpperCase()}
+                    </span>
+                  </div>
+                )}
+                {enrichedData.firstAirDate && (
+                  <div className="fact-item">
+                    <span className="fact-label">First Aired</span>
+                    <span className="fact-value">
+                      {formatDate(enrichedData.firstAirDate)}
+                    </span>
+                  </div>
+                )}
+                {enrichedData.lastAirDate && (
+                  <div className="fact-item">
+                    <span className="fact-label">Last Aired</span>
+                    <span className="fact-value">
+                      {formatDate(enrichedData.lastAirDate)}
+                    </span>
+                  </div>
+                )}
+                {enrichedData.budget != null && enrichedData.budget > 0 && (
+                  <div className="fact-item">
+                    <span className="fact-label">Budget</span>
+                    <span className="fact-value">
+                      {formatCurrency(enrichedData.budget)}
+                    </span>
+                  </div>
+                )}
+                {enrichedData.revenue != null && enrichedData.revenue > 0 && (
+                  <div className="fact-item">
+                    <span className="fact-label">Revenue</span>
+                    <span className="fact-value">
+                      {formatCurrency(enrichedData.revenue)}
+                    </span>
+                  </div>
+                )}
+                {enrichedData.status && (
+                  <div className="fact-item">
+                    <span className="fact-label">Status</span>
+                    <span
+                      className={`fact-value fact-status-${enrichedData.status.toLowerCase().replace(/\s+/g, "-")}`}
+                    >
+                      {enrichedData.status}
+                    </span>
+                  </div>
+                )}
+                {(() => {
+                  const directors = enrichedData.crew?.filter(c => c.job === "Director") || [];
+                  const directorNames = directors.length > 0
+                    ? directors.map(d => d.name)
+                    : (details.director || []);
+                  if (directorNames.length > 0) {
+                    return (
+                      <div className="fact-item">
+                        <span className="fact-label">
+                          {directorNames.length > 1 ? "Directors" : "Director"}
+                        </span>
+                        <span className="fact-value">{directorNames.join(", ")}</span>
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
+              </div>
+            </div>
+          )}
+
+        {/* More Like This — recommendations */}
+        {enrichedData &&
+          enrichedData.recommendations.length > 0 && (
+            <div className="details-section">
+              <h2 className="section-title">More Like This</h2>
+              <div className="details-scroll-wrapper">
+                <button
+                  className="details-scroll-btn details-scroll-left"
+                  onClick={() => recommendationsRef.current?.scrollBy({ left: -400, behavior: 'smooth' })}
+                  aria-label="Scroll left"
+                >
+                  <ChevronLeft size={18} />
+                </button>
+                <div className="recommendations-row" ref={recommendationsRef}>
+                  {enrichedData.recommendations.map((rec) => (
+                  <div
+                    key={rec.id}
+                    className="recommendation-card"
+                    onClick={async () => {
+                      const imdbId = await tmdbService.resolveImdbId(
+                        rec.id,
+                        rec.type,
+                      );
+                      if (imdbId) {
+                        navigate(`/details/${rec.type}/${imdbId}`);
+                      }
+                    }}
+                  >
+                    <div className="recommendation-poster">
+                      {rec.posterUrl ? (
+                        <img
+                          src={rec.posterUrl}
+                          alt={rec.title}
+                          loading="lazy"
+                        />
+                      ) : (
+                        <div className="recommendation-poster-placeholder">
+                          {rec.title.slice(0, 2)}
+                        </div>
+                      )}
+                      {rec.rating > 0 && (
+                        <span className="recommendation-rating">
+                          <StarFilled size={10} /> {rec.rating}
+                        </span>
+                      )}
+                    </div>
+                    <span className="recommendation-title">{rec.title}</span>
+                    {rec.releaseDate && (
+                      <span className="recommendation-year">
+                        {rec.releaseDate.split("-")[0]}
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+                <button
+                  className="details-scroll-btn details-scroll-right"
+                  onClick={() => recommendationsRef.current?.scrollBy({ left: 400, behavior: 'smooth' })}
+                  aria-label="Scroll right"
+                >
+                  <ChevronRight size={18} />
+                </button>
               </div>
             </div>
           )}
@@ -607,110 +977,10 @@ export function DetailsPage() {
           </div>
         )}
 
-        {/* Torrent results — movies only; series uses the episode popup */}
-        {isMovie && (torrents.length > 0 || isSearchingTorrents) && (
-          <div className="details-section details-torrents" ref={torrentsRef}>
-            <div className="torrents-header">
-              <h2>
-                {isSearchingTorrents
-                  ? "Searching Sources..."
-                  : `Available Sources (${torrents.length})`}
-              </h2>
-              {!isSearchingTorrents && torrents.length > 0 && (
-                <button
-                  className="btn btn-ghost btn-sm"
-                  onClick={() => handleSearchTorrents(false)}
-                >
-                  Refresh
-                </button>
-              )}
-            </div>
-
-            {isSearchingTorrents && (
-              <div className="torrents-loading">
-                <div className="spinner"></div>
-                <span>Searching across providers...</span>
-              </div>
-            )}
-
-            {!isSearchingTorrents && torrents.length > 0 && (
-              <div className="torrents-list">
-                {torrents.map((torrent) => {
-                  const info = parseStreamInfo(torrent.title);
-                  const isInstant = instantAvailability.get(torrent.infoHash);
-                  return (
-                    <div
-                      key={torrent.id}
-                      className={`torrent-card ${isInstant ? "torrent-card-instant" : ""}`}
-                      onClick={() => handleTorrentPlay(torrent)}
-                    >
-                      <div className="torrent-card-left">
-                        <div className="torrent-quality-col">
-                          <span
-                            className={`torrent-res-badge ${info.resolutionBadge === "4K" ? "res-4k" : info.resolutionBadge === "1080p" ? "res-1080p" : "res-other"}`}
-                          >
-                            {info.resolutionBadge}
-                          </span>
-                          {isInstant && (
-                            <span className="instant-badge">
-                              <Bolt size={10} /> Instant
-                            </span>
-                          )}
-                        </div>
-                        <div className="torrent-details-col">
-                          <span className="torrent-title">{torrent.title}</span>
-                          <div className="torrent-badges">
-                            {info.hasDolbyVision && (
-                              <DolbyVisionBadge height={16} />
-                            )}
-                            {info.hasHDR10Plus && (
-                              <HDR10PlusBadge height={16} />
-                            )}
-                            {info.isHDR &&
-                              !info.hasDolbyVision &&
-                              !info.hasHDR10Plus &&
-                              (info.hdrType === "HDR10" ? (
-                                <HDR10Badge height={16} />
-                              ) : (
-                                <HDRBadge height={16} />
-                              ))}
-                            {info.hasAtmos && <DolbyAtmosBadge height={16} />}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="torrent-card-right">
-                        <div className="torrent-stats">
-                          <span className="torrent-size">
-                            {torrent.sizeFormatted}
-                          </span>
-                          <span className="torrent-seeds">
-                            {torrent.seeds > 0 ? `${torrent.seeds} seeds` : ""}
-                          </span>
-                          <span className="torrent-provider">
-                            {torrent.provider}
-                          </span>
-                        </div>
-                        <button
-                          className="btn btn-primary btn-sm torrent-play-btn"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleTorrentPlay(torrent);
-                          }}
-                        >
-                          <Play size={12} /> Play
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        )}
       </div>
 
-      {/* Episode sources popup — series only */}
-      {showEpisodePopup && selectedEpisode && (
+      {/* Sources popup — movies & series */}
+      {showEpisodePopup && (selectedEpisode || isMovie) && (
         <div
           className="episode-popup-backdrop"
           onClick={() => setShowEpisodePopup(false)}
@@ -719,8 +989,9 @@ export function DetailsPage() {
             <div className="episode-popup-header">
               <div>
                 <div className="episode-popup-episode">
-                  S{selectedEpisode.season}E{selectedEpisode.episode} &mdash;{" "}
-                  {selectedEpisode.name}
+                  {isMovie
+                    ? details?.title
+                    : `S${selectedEpisode!.season}E${selectedEpisode!.episode} \u2014 ${selectedEpisode!.name}`}
                 </div>
                 <div className="episode-popup-subtitle">
                   {isSearchingTorrents
@@ -843,6 +1114,42 @@ export function DetailsPage() {
             )}
           </div>
         </div>
+      )}
+
+      {/* YouTube trailer embed modal */}
+      {activeTrailer && (
+        <div
+          className="trailer-modal-backdrop"
+          onClick={() => setActiveTrailer(null)}
+        >
+          <div className="trailer-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="trailer-modal-header">
+              <span className="trailer-modal-title">{activeTrailer.name}</span>
+              <button
+                className="trailer-modal-close"
+                onClick={() => setActiveTrailer(null)}
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div className="trailer-modal-player">
+              <iframe
+                src={`https://www.youtube-nocookie.com/embed/${activeTrailer.key}?autoplay=1&rel=0&modestbranding=1`}
+                title={activeTrailer.name}
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Person detail modal */}
+      {selectedPersonId && (
+        <PersonModal
+          personId={selectedPersonId}
+          onClose={() => setSelectedPersonId(null)}
+        />
       )}
     </div>
   );

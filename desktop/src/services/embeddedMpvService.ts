@@ -76,8 +76,14 @@ const HIGH_QUALITY_PROFILE: Record<string, string> = {
   deband: "yes",
 
   // --- HDR → SDR tone-mapping ---
-  // 'hable' preserves dark and bright detail well on SDR displays.
-  "tone-mapping": "hable",
+  // 'mobius' preserves shadow detail better than 'hable' on SDR displays.
+  "tone-mapping": "mobius",
+
+  // Brightness / gamma / contrast tweaks to lift crushed blacks
+  // and reduce harsh contrast on typical SDR monitors.
+  brightness: "5",
+  gamma: "5",
+  contrast: "-3",
 };
 
 export interface AudioTrack {
@@ -337,16 +343,29 @@ class EmbeddedMpvService {
    */
   async refreshTracks(): Promise<void> {
     try {
-      // Get track count
-      const trackCountRaw = await getProperty("track-list/count", "int64");
-      const trackCount = toNumberOrNull(trackCountRaw) ?? 0;
+      // Get track count — may fail if MPV is between files or shutting down
+      let trackCount = 0;
+      try {
+        const trackCountRaw = await getProperty("track-list/count", "int64");
+        trackCount = toNumberOrNull(trackCountRaw) ?? 0;
+      } catch {
+        // MPV not ready yet or shutting down
+        return;
+      }
 
       const audioTracks: AudioTrack[] = [];
       const subtitleTracks: SubtitleTrack[] = [];
 
       for (let i = 0; i < trackCount; i++) {
-        const type = await getProperty(`track-list/${i}/type`, "string");
-        const idRaw = await getProperty(`track-list/${i}/id`, "int64");
+        // Track indices can shift during progressive demux — guard every read
+        let type: unknown;
+        try {
+          type = await getProperty(`track-list/${i}/type`, "string");
+        } catch {
+          // Track was removed/reindexed between count read and property read
+          continue;
+        }
+        const idRaw = await getProperty(`track-list/${i}/id`, "int64").catch(() => null);
         const id = toNumberOrNull(idRaw);
         if (id === null) continue;
         const title = await getProperty(
@@ -532,14 +551,24 @@ class EmbeddedMpvService {
    * Seek to absolute position (in seconds)
    */
   async seek(position: number): Promise<void> {
-    await command("seek", [position.toString(), "absolute"]);
+    if (!this.initialized) return;
+    try {
+      await command("seek", [position.toString(), "absolute"]);
+    } catch (err) {
+      console.warn("MPV seek failed:", err);
+    }
   }
 
   /**
    * Seek relative (in seconds, can be negative)
    */
   async seekRelative(seconds: number): Promise<void> {
-    await command("seek", [seconds.toString(), "relative"]);
+    if (!this.initialized) return;
+    try {
+      await command("seek", [seconds.toString(), "relative"]);
+    } catch (err) {
+      console.warn("MPV seekRelative failed:", err);
+    }
   }
 
   /**

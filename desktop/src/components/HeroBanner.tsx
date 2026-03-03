@@ -6,6 +6,7 @@ import { StarFilled, Play } from "./Icons";
 import "./HeroBanner.css";
 
 const ROTATE_INTERVAL = 15000; // 15 seconds
+const CROSSFADE_DURATION = 800; // ms — matches CSS transition
 
 /** Module-level set to remember image URLs we have already preloaded (requested). */
 const preloadedUrls = new Set<string>();
@@ -20,6 +21,26 @@ function preloadImage(url: string | undefined | null) {
   img.src = url;
 }
 
+/**
+ * Ensure a backdrop image is loaded into the browser cache.
+ * Resolves immediately if the image is already cached.
+ */
+function ensureImageLoaded(url: string): Promise<void> {
+  return new Promise((resolve) => {
+    if (loadedUrls.has(url)) {
+      resolve();
+      return;
+    }
+    const img = new Image();
+    img.onload = () => {
+      loadedUrls.add(url);
+      resolve();
+    };
+    img.onerror = () => resolve(); // show anyway on error
+    img.src = url;
+  });
+}
+
 interface HeroBannerProps {
   items: MediaItem[];
   isLoading?: boolean;
@@ -31,15 +52,67 @@ export function HeroBanner({ items, isLoading = false }: HeroBannerProps) {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const [logoLoaded, setLogoLoaded] = useState(false);
-  const [backdropReady, setBackdropReady] = useState(false);
+
+  // Simple two-layer crossfade:
+  //   baseUrl  — always opacity 1 (the "old" image, sits underneath)
+  //   topUrl   — fades in from opacity 0 → 1 on top, then gets copied to baseUrl
+  // After the crossfade finishes, baseUrl becomes the new image and topUrl is
+  // hidden instantly (no reverse animation) so the next transition can begin.
+  const [baseUrl, setBaseUrl] = useState<string | null>(null);
+  const [topUrl, setTopUrl] = useState<string | null>(null);
+  const [showTop, setShowTop] = useState(false);
+  const crossfadeRef = useRef(false);
 
   const item = items.length > 0 ? items[activeIndex % items.length] : null;
   const validLogo = useValidatedImage(item?.logo);
 
+  // Set up the initial backdrop once we have the first item
+  useEffect(() => {
+    if (!item?.backdrop) return;
+    if (baseUrl === null) {
+      ensureImageLoaded(item.backdrop).then(() => {
+        setBaseUrl(item.backdrop!);
+      });
+    }
+  }, [item?.backdrop]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // When activeIndex changes (after initial), crossfade to the new backdrop
+  const prevIndexRef = useRef(activeIndex);
+  useEffect(() => {
+    if (prevIndexRef.current === activeIndex) return;
+    prevIndexRef.current = activeIndex;
+
+    const newItem = items[activeIndex % items.length];
+    const newUrl = newItem?.backdrop;
+    if (!newUrl) return;
+    if (crossfadeRef.current) return; // don't overlap
+    crossfadeRef.current = true;
+
+    ensureImageLoaded(newUrl).then(() => {
+      // Put new image on top layer, then fade it in
+      setTopUrl(newUrl);
+      // Double rAF to ensure the browser has painted opacity 0 before we animate to 1
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          setShowTop(true);
+        });
+      });
+
+      // After the CSS transition completes, promote the top image to base and reset
+      setTimeout(() => {
+        setBaseUrl(newUrl);
+        // Instantly hide top layer — no animation because we remove the active class
+        // which also removes the CSS transition property
+        setShowTop(false);
+        setTopUrl(null);
+        crossfadeRef.current = false;
+      }, CROSSFADE_DURATION + 50); // small buffer beyond CSS duration
+    });
+  }, [activeIndex, items]);
+
   // Preload current + next backdrop & logo images
   useEffect(() => {
     if (items.length === 0) return;
-    // Preload current and next 2 items
     for (let offset = 0; offset < Math.min(3, items.length); offset++) {
       const idx = (activeIndex + offset) % items.length;
       const m = items[idx];
@@ -47,25 +120,6 @@ export function HeroBanner({ items, isLoading = false }: HeroBannerProps) {
       preloadImage(m?.logo);
     }
   }, [items, activeIndex]);
-
-  // When the backdrop image URL changes, wait for it to actually load before showing
-  useEffect(() => {
-    setBackdropReady(false);
-    if (!item?.backdrop) return;
-    // Only mark ready if the image has fully downloaded into the browser cache
-    if (loadedUrls.has(item.backdrop)) {
-      setBackdropReady(true);
-      return;
-    }
-    const url = item.backdrop;
-    const img = new Image();
-    img.onload = () => {
-      loadedUrls.add(url);
-      setBackdropReady(true);
-    };
-    img.onerror = () => setBackdropReady(true); // show anyway on error
-    img.src = url;
-  }, [item?.backdrop]);
 
   // Reset logo loaded state when logo changes
   useEffect(() => {
@@ -129,18 +183,33 @@ export function HeroBanner({ items, isLoading = false }: HeroBannerProps) {
     return null;
   }
 
+  // Determine which layer is "active" (bottom, fully visible) and which is "incoming" (top, fading in)
+
   return (
     <div className="hero-banner">
-      {/* Backdrop only fades while the new image is loading — not during content transitions.
-          This prevents the full blank-screen flash between slides. */}
+      {/* Base backdrop layer — always opacity 1 */}
       <div
-        className={`hero-backdrop ${!backdropReady ? "hero-backdrop-fade" : ""}`}
+        className="hero-backdrop"
         style={{
-          backgroundImage: item.backdrop ? `url(${item.backdrop})` : "none",
+          backgroundImage: baseUrl ? `url(${baseUrl})` : "none",
+          opacity: 1,
+          zIndex: 0,
         }}
-      >
-        <div className="hero-gradient"></div>
-      </div>
+      />
+
+      {/* Top layer — fades in during crossfade, then instantly hidden */}
+      {topUrl && (
+        <div
+          className={`hero-backdrop hero-backdrop-top${showTop ? " hero-backdrop-active" : ""}`}
+          style={{
+            backgroundImage: `url(${topUrl})`,
+            zIndex: 1,
+          }}
+        />
+      )}
+
+      {/* Gradient overlay */}
+      <div className="hero-gradient" />
 
       <div
         className={`hero-content ${isTransitioning ? "hero-content-fade" : ""}`}

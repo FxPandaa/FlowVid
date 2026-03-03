@@ -31,6 +31,39 @@ import {
 import "./EmbeddedMpvPlayer.css";
 
 /**
+ * Map common ISO 639-1 (2-letter) codes to ISO 639-2/B (3-letter) codes
+ * so we can compare embedded track languages (which MPV may report in
+ * either format) against the user's preferred language setting (always 3-letter).
+ */
+const ISO_639_1_TO_2: Record<string, string> = {
+  en: "eng", nl: "dut", de: "ger", fr: "fre", es: "spa", it: "ita",
+  pt: "por", ru: "rus", ja: "jpn", ko: "kor", zh: "chi", ar: "ara",
+  hi: "hin", pl: "pol", sv: "swe", da: "dan", fi: "fin", nb: "nor",
+  no: "nor", tr: "tur", cs: "cze", hu: "hun", ro: "rum", el: "gre",
+  he: "heb", th: "tha", vi: "vie", uk: "ukr", id: "ind", ms: "may",
+  hr: "hrv", bg: "bul", sk: "slo", sr: "srp", sl: "slv", et: "est",
+  lv: "lav", lt: "lit", ka: "geo", fa: "per", ur: "urd", ta: "tam",
+};
+
+/** Normalise a language tag to its 3-letter ISO 639-2 form. */
+function normLang(raw: string): string {
+  const l = raw.toLowerCase().trim();
+  return ISO_639_1_TO_2[l] || l;
+}
+
+/** Check if two language tags refer to the same language. */
+function langMatches(trackLang: string, preferred: string): boolean {
+  const a = normLang(trackLang);
+  const b = normLang(preferred);
+  // Exact match after normalisation
+  if (a === b) return true;
+  // Substring containment for less-standard tags (e.g. "en-US" contains "eng"?)
+  // Only when one string fully contains the other at the prefix level
+  if (a.startsWith(b) || b.startsWith(a)) return true;
+  return false;
+}
+
+/**
  * Score an embedded subtitle track to determine quality/relevance.
  * Higher = better.  A score < 0 means "do not use this track".
  *
@@ -56,13 +89,13 @@ function scoreEmbeddedTrack(
   const pref = preferredLang.toLowerCase();
 
   // ─── Language scoring ───────────────────────────────────────────
-  if (lang && pref && lang.includes(pref)) {
+  if (lang && pref && langMatches(lang, pref)) {
     // Exact preferred-language match
     score += 1000;
   } else if (!lang || lang === "und") {
     // Unknown language — could be the right one
     score += 100;
-  } else if (pref !== "eng" && (lang.includes("eng") || lang.includes("en"))) {
+  } else if (pref !== "eng" && langMatches(lang, "eng")) {
     // English track as fallback when user prefers another language.
     // Score is positive so the track *can* be used, but low enough that
     // an online subtitle in the user's preferred language will win.
@@ -160,7 +193,7 @@ export function EmbeddedMpvPlayer({
   const [showAudioMenu, setShowAudioMenu] = useState(false);
   const [showSubtitleMenu, setShowSubtitleMenu] = useState(false);
   const [showEpisodeMenu, setShowEpisodeMenu] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const [, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [subtitleDelay, setSubtitleDelay] = useState(initialSubtitleOffset);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -180,6 +213,7 @@ export function EmbeddedMpvPlayer({
   const containerRef = useRef<HTMLDivElement>(null);
   const loadedUrlRef = useRef<string | null>(null);
   const isPlayingRef = useRef(false);
+  const eofRecoveryAttempts = useRef(0);
   const hasRestoredInitialSubtitleRef = useRef(false);
   const hasAutoSelectedEmbeddedSubRef = useRef(false);
   const autoSelectedSubScoreRef = useRef<number | null>(null);
@@ -193,6 +227,7 @@ export function EmbeddedMpvPlayer({
     hasRestoredInitialSubtitleRef.current = false;
     hasAutoSelectedEmbeddedSubRef.current = false;
     autoSelectedSubScoreRef.current = null;
+    eofRecoveryAttempts.current = 0;
     // Reset online subtitle state so previous episode's choice doesn't block embedded auto-select
     setActiveOnlineSubtitleId(null);
     setOnlineSubtitles([]);
@@ -251,9 +286,29 @@ export function EmbeddedMpvPlayer({
               ...updates,
             }));
 
-            // Check for EOF
-            if (updates.eofReached) {
-              onEnded?.();
+            // Check for EOF — guard against premature EOF from network stalls
+            if (updates.eofReached === true) {
+              const { position: pos, duration: dur } = embeddedMpvService.getState();
+              const nearEnd = dur > 0 && pos > 0 && (pos / dur >= 0.9 || dur - pos < 300);
+
+              if (nearEnd) {
+                onEnded?.();
+              } else if (eofRecoveryAttempts.current < 3) {
+                eofRecoveryAttempts.current++;
+                console.warn(
+                  `Premature EOF at ${pos.toFixed(0)}s/${dur.toFixed(0)}s — recovery attempt ${eofRecoveryAttempts.current}/3`
+                );
+                // Seek back slightly to re-trigger demuxer buffering
+                embeddedMpvService.seek(Math.max(0, pos - 3)).catch(() => {});
+                setTimeout(() => embeddedMpvService.play().catch(() => {}), 500);
+              } else {
+                onError?.("Stream connection lost. The download link may have expired.");
+              }
+            }
+
+            // Reset recovery counter when playback resumes normally
+            if (updates.isPlaying === true) {
+              eofRecoveryAttempts.current = 0;
             }
 
             // Report progress
@@ -554,85 +609,71 @@ export function EmbeddedMpvPlayer({
         if (cancelled) return;
         setOnlineSubtitles(subs);
 
-        // Auto-select best online subtitle only if no good embedded sub is active.
-        // Wait for MPV to discover embedded tracks and our auto-select to evaluate them.
+        // Auto-select best online subtitle only if no good embedded sub exists.
+        // Wait for MPV to discover embedded tracks, then directly score them
+        // (avoids race condition with the embedded auto-select useEffect).
         //
         // Score thresholds (from scoreEmbeddedTrack):
         //   >= 1000  →  Embedded track in the user's preferred language → keep it
-        //   300-999  →  English fallback (user prefers a different language) →
-        //               an online sub in the preferred language should override
-        //   < 300    →  Unknown / weak match → online preferred language wins
+        //   300-999  →  English fallback → online preferred-lang can override
+        //   < 300    →  Unknown / weak → online preferred-lang wins
         if (subs.length > 0) {
-          await new Promise((r) => setTimeout(r, 3000));
+          // Wait for MPV to demux and discover subtitle tracks (progressive)
+          await new Promise((r) => setTimeout(r, 4000));
           if (cancelled) return;
 
           const PREFERRED_LANG_THRESHOLD = 1000;
+          const defaultLang = subPrefs.defaultLanguage || preferredSubtitleLang;
 
-          // Check if our embedded auto-select already picked a preferred-lang track
-          if (
-            hasAutoSelectedEmbeddedSubRef.current &&
-            autoSelectedSubScoreRef.current !== null &&
-            autoSelectedSubScoreRef.current >= PREFERRED_LANG_THRESHOLD
-          ) {
+          // Directly score embedded tracks from MPV's current state
+          // instead of relying on the auto-select useEffect's ref timing
+          const currentState = embeddedMpvService.getState();
+          const embeddedTracks = currentState.subtitleTracks.filter(
+            (t) => !t.external,
+          );
+
+          // If embedded tracks exist, wait a bit more to catch late arrivals
+          if (embeddedTracks.length > 0) {
+            await new Promise((r) => setTimeout(r, 1500));
+            if (cancelled) return;
+          }
+
+          // Re-read after possible second wait
+          const finalState = embeddedMpvService.getState();
+          const finalEmbedded = finalState.subtitleTracks.filter(
+            (t) => !t.external,
+          );
+
+          // Compute the best embedded score directly
+          let bestEmbeddedScore = -Infinity;
+          if (finalEmbedded.length > 0) {
+            for (const t of finalEmbedded) {
+              const s = scoreEmbeddedTrack(t, defaultLang);
+              if (s > bestEmbeddedScore) bestEmbeddedScore = s;
+            }
+          }
+
+          // If embedded sub in preferred language exists (score >= 1000), keep it
+          if (bestEmbeddedScore >= PREFERRED_LANG_THRESHOLD) {
             console.log(
               "Embedded subtitle in preferred language (score:",
-              autoSelectedSubScoreRef.current,
+              bestEmbeddedScore,
               "); skipping addon subtitle autoload.",
             );
             return;
           }
 
-          // Re-read current state after waiting
-          const currentState = embeddedMpvService.getState();
-
-          // If embedded tracks exist but haven't been evaluated yet, wait a bit more
-          const embeddedTracks = currentState.subtitleTracks.filter(
-            (t) => !t.external,
-          );
-          if (
-            embeddedTracks.length > 0 &&
-            !hasAutoSelectedEmbeddedSubRef.current
-          ) {
-            // Give embedded auto-select one more second to evaluate
-            await new Promise((r) => setTimeout(r, 1500));
-            if (cancelled) return;
-
-            // Check again after extra wait
-            if (
-              hasAutoSelectedEmbeddedSubRef.current &&
-              autoSelectedSubScoreRef.current !== null &&
-              autoSelectedSubScoreRef.current >= PREFERRED_LANG_THRESHOLD
-            ) {
-              console.log(
-                "Embedded subtitle in preferred language after extended wait; skipping addon subtitle autoload.",
-              );
-              return;
-            }
-          }
-
-          // At this point either:
-          // - No embedded tracks exist at all
-          // - Embedded tracks were evaluated and none matched the preferred language
-          //   (they may be English fallback or scored poorly)
-          // → Look for an online subtitle in the user's preferred language.
-          //   If one exists, use it even if we currently have an English embedded fallback.
-
-          const defaultLang = subPrefs.defaultLanguage || preferredSubtitleLang;
+          // Look for online subs in the user's preferred language
           const defaultLangSubs = subs.filter(
             (s) => s.languageCode === defaultLang,
           );
 
-          // If the user's preferred language isn't available online either,
-          // keep whatever embedded track we already picked (even English fallback).
+          // No online subs in preferred lang — keep embedded fallback if available
           if (defaultLangSubs.length === 0) {
-            if (
-              hasAutoSelectedEmbeddedSubRef.current &&
-              autoSelectedSubScoreRef.current !== null &&
-              autoSelectedSubScoreRef.current > 0
-            ) {
+            if (bestEmbeddedScore > 0) {
               console.log(
                 "No online subs in preferred lang; keeping embedded fallback (score:",
-                autoSelectedSubScoreRef.current,
+                bestEmbeddedScore,
                 ")",
               );
               return;
@@ -654,8 +695,8 @@ export function EmbeddedMpvPlayer({
             console.log(
               "Auto-selecting online subtitle:",
               chosen?.language,
-              "(embedded score was:",
-              autoSelectedSubScoreRef.current,
+              "(best embedded score was:",
+              bestEmbeddedScore,
               ")",
             );
             await handleSelectOnlineSubtitle(chosen, true);
@@ -986,13 +1027,8 @@ export function EmbeddedMpvPlayer({
         onClick={handleVideoAreaClick}
       />
 
-      {/* Loading overlay */}
-      {isLoading && (
-        <div className="embedded-mpv-player__loading">
-          <div className="embedded-mpv-player__spinner" />
-          <p>Loading...</p>
-        </div>
-      )}
+      {/* Loading overlay — hidden; PlayerPage provides its own cinematic
+           loading screen. Keeping the state so external consumers can check. */}
 
       {/* Controls overlay */}
       <div
@@ -1041,7 +1077,7 @@ export function EmbeddedMpvPlayer({
               onClick={() => embeddedMpvService.togglePause()}
               title={state?.isPaused ? "Play" : "Pause"}
             >
-              {state?.isPaused ? <Play size={20} /> : <Pause size={20} />}
+              {(state?.isPaused ?? false) ? <Play size={20} /> : <Pause size={20} />}
             </button>
 
             {/* Volume */}

@@ -50,6 +50,10 @@ interface SettingsState {
   // Subtitle settings
   subtitles: SubtitlePreferences;
 
+  // TMDB settings
+  tmdbCustomApiKey: string;
+  tmdbUseCustomKey: boolean;
+
   // Actions
   setDebridApiKey: (service: DebridService, apiKey: string) => void;
   removeDebridApiKey: (service: DebridService) => void;
@@ -82,6 +86,11 @@ interface SettingsState {
   // Episode thumbnail blur
   blurUnwatchedEpisodes: boolean;
   setBlurUnwatchedEpisodes: (enabled: boolean) => void;
+
+  // TMDB actions
+  setTmdbCustomApiKey: (key: string) => void;
+  setTmdbUseCustomKey: (enabled: boolean) => void;
+  clearTmdbCache: () => void;
 
   // Subtitle appearance
   subtitleAppearance: SubtitleAppearance;
@@ -166,6 +175,9 @@ const defaultSettings = {
   },
   // Blur episode thumbnails for unwatched episodes (spoiler protection)
   blurUnwatchedEpisodes: true,
+  // TMDB metadata enrichment
+  tmdbCustomApiKey: "",
+  tmdbUseCustomKey: false,
   // Subtitle appearance
   subtitleAppearance: defaultSubtitleAppearance,
 };
@@ -336,6 +348,20 @@ export const useSettingsStore = create<SettingsState>()(
       // Episode thumbnail blur
       setBlurUnwatchedEpisodes: (enabled: boolean) => {
         set({ blurUnwatchedEpisodes: enabled });
+      },
+
+      // TMDB settings
+      setTmdbCustomApiKey: (key: string) => {
+        set({ tmdbCustomApiKey: key });
+      },
+      setTmdbUseCustomKey: (enabled: boolean) => {
+        set({ tmdbUseCustomKey: enabled });
+      },
+      clearTmdbCache: () => {
+        // Dynamic import to avoid circular dependency
+        import("../services/metadata/tmdb").then(({ tmdbService }) => {
+          tmdbService.clearCache();
+        });
       },
 
       // Subtitle appearance

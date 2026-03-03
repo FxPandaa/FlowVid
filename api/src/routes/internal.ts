@@ -4,6 +4,11 @@
  *
  * Protected by a simple bearer token (INTERNAL_API_KEY env var)
  * These are NOT for end users — they're for you (the operator).
+ *
+ * SECURITY:
+ *   When CLOUDFLARE_TUNNEL=true, requests to /internal/* are rejected
+ *   unless they originate from the loopback interface (127.0.0.1 / ::1).
+ *   This prevents tunnel-exposed access to operator endpoints.
  */
 
 import { Router, Request, Response, NextFunction } from "express";
@@ -24,8 +29,53 @@ import {
 } from "../services/billing/types.js";
 import { UnauthorizedError, NotFoundError } from "../utils/errors.js";
 import crypto from "crypto";
+import {
+  createBackup,
+  pruneBackups,
+  listBackups,
+} from "../services/backup/index.js";
 
 const router = Router();
+
+// ============================================================================
+// LOCALHOST-ONLY GUARD (Cloudflare Tunnel)
+// ============================================================================
+
+/**
+ * When CLOUDFLARE_TUNNEL=true, only allow /internal requests from loopback.
+ * Cloudflare Tunnel forwards external traffic, but operator endpoints should
+ * ONLY be callable from the machine itself (ssh, cron, monitoring scripts).
+ */
+function localhostGuard(req: Request, res: Response, next: NextFunction): void {
+  if (!config.server.cloudflareTunnel) {
+    next();
+    return;
+  }
+
+  // IMPORTANT: Use req.socket.remoteAddress (raw TCP socket), NOT req.ip.
+  // req.ip is resolved through trust-proxy and would show the forwarded IP,
+  // defeating the purpose of this guard. The socket address is always the actual
+  // connection source — which will be 127.0.0.1 for local calls and the tunnel
+  // connector IP for external traffic.
+  const socketIp = req.socket.remoteAddress ?? "";
+  const isLoopback =
+    socketIp === "127.0.0.1" ||
+    socketIp === "::1" ||
+    socketIp === "::ffff:127.0.0.1";
+
+  if (!isLoopback) {
+    res.status(403).json({
+      success: false,
+      error: "Internal routes are only accessible from localhost",
+      code: "FORBIDDEN",
+    });
+    return;
+  }
+
+  next();
+}
+
+router.use(localhostGuard);
 
 // ============================================================================
 // OPERATOR AUTH MIDDLEWARE
@@ -336,22 +386,54 @@ router.get(
 
 /**
  * POST /internal/backup
- * Create a SQLite backup using better-sqlite3's .backup() API
- * Returns the backup file path on success
+ * Create a verified SQLite backup and prune old backups.
+ * Uses better-sqlite3's .backup() API for atomic online backups.
  */
 router.post(
   "/backup",
   asyncHandler(async (_req: Request, res: Response) => {
-    const db = getDb();
-    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-    const backupPath = `${config.database.path}.backup-${timestamp}`;
-
-    await db.backup(backupPath);
+    const result = await createBackup();
+    const pruned = pruneBackups();
 
     res.json({
       success: true,
-      message: "Database backup created",
-      data: { path: backupPath, timestamp: new Date().toISOString() },
+      message: "Database backup created and verified",
+      data: {
+        backup: result,
+        pruned,
+        recovery: {
+          instructions: [
+            "1. Stop the FlowVid API: pm2 stop flowvid  (or systemctl stop flowvid)",
+            `2. Copy backup over current DB: cp <backup_file> ${config.database.path}`,
+            "3. Start the FlowVid API: pm2 start flowvid  (or systemctl start flowvid)",
+            "4. Verify: curl http://localhost:3000/health",
+          ],
+        },
+      },
+    });
+  }),
+);
+
+/**
+ * GET /internal/backups
+ * List all existing backups with size and creation date.
+ */
+router.get(
+  "/backups",
+  asyncHandler(async (_req: Request, res: Response) => {
+    const backups = listBackups();
+
+    res.json({
+      success: true,
+      data: {
+        backups,
+        config: {
+          enabled: config.backup.enabled,
+          intervalHours: config.backup.intervalHours,
+          retentionDays: config.backup.retentionDays,
+          directory: config.backup.dir,
+        },
+      },
     });
   }),
 );

@@ -90,6 +90,8 @@ export function HomePage() {
         {watchHistory.length > 0 && (
           <ContinueWatching
             items={watchHistory.filter((item, index, self) => {
+              // Skip finished items (≥95% watched)
+              if (item.progress >= 95) return false;
               // For movies, always include
               if (item.type === "movie") return true;
               // For series, only include if it's the first occurrence of this imdbId
