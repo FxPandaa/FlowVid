@@ -1,0 +1,472 @@
+/* -- Discover Page -- full discovery with filters -- */
+.discover-page {
+  padding: 20px 48px 48px;
+  min-height: calc(100vh - 64px);
+}
+
+.discover-header {
+  margin-bottom: 20px;
+}
+
+.discover-header h1 {
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.discover-subtitle {
+  font-size: 14px;
+  color: var(--text-tertiary);
+}
+
+/* ── Filter bar ──────────────────────────────────────────────── */
+.discover-filters {
+  margin-bottom: 28px;
+}
+
+/* Type tabs */
+.discover-type-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.discover-type-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 18px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: var(--radius-md);
+  color: var(--text-tertiary);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.discover-type-tab:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-secondary);
+}
+
+.discover-type-tab.active {
+  background: var(--primary);
+  border-color: transparent;
+  color: #000;
+  font-weight: 600;
+}
+
+/* Filter controls row */
+.discover-filter-row {
+  display: flex;
+  gap: 14px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.discover-filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+.discover-filter-group label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.discover-select {
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: 13px;
+  cursor: pointer;
+  transition: border-color var(--transition-fast);
+  min-width: 140px;
+  appearance: auto;
+}
+
+.discover-select:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.discover-select option {
+  background: #1a1d24;
+  color: var(--text-primary);
+}
+
+.discover-range-inputs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.discover-input {
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: 13px;
+  width: 72px;
+  transition: border-color var(--transition-fast);
+}
+
+.discover-input:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.discover-input::placeholder {
+  color: var(--text-tertiary);
+  font-size: 12px;
+}
+
+/* Hide number input spinners */
+.discover-input::-webkit-outer-spin-button,
+.discover-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.discover-input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+.range-separator {
+  color: var(--text-tertiary);
+  font-size: 14px;
+  user-select: none;
+}
+
+.discover-clear-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 8px 14px;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: var(--radius-md);
+  color: #ef4444;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  align-self: flex-end;
+}
+
+.discover-clear-btn:hover {
+  background: rgba(239, 68, 68, 0.2);
+}
+
+/* Genre multi-select dropdown */
+.discover-genre-dropdown {
+  position: relative;
+  margin-top: 2px;
+}
+
+.discover-genre-trigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  min-width: 140px;
+  justify-content: space-between;
+}
+
+.discover-genre-trigger:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.discover-genre-trigger.open {
+  border-color: var(--primary);
+  background: rgba(0, 229, 255, 0.04);
+}
+
+.discover-genre-trigger.has-selection {
+  color: var(--primary);
+  border-color: rgba(0, 229, 255, 0.25);
+}
+
+.discover-genre-trigger .dropdown-caret {
+  transition: transform var(--transition-fast);
+  opacity: 0.5;
+  flex-shrink: 0;
+}
+
+.discover-genre-trigger.open .dropdown-caret {
+  transform: rotate(180deg);
+}
+
+.discover-genre-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  min-width: 220px;
+  max-height: 320px;
+  overflow-y: auto;
+  background: #1a1d24;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-md);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  z-index: 50;
+  padding: 4px;
+}
+
+.discover-genre-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+  transition: background var(--transition-fast);
+  text-align: left;
+}
+
+.discover-genre-option:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.discover-genre-option.selected {
+  color: var(--primary);
+  font-weight: 500;
+}
+
+.discover-genre-option .genre-check {
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 3px;
+  transition: all var(--transition-fast);
+}
+
+.discover-genre-option.selected .genre-check {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #000;
+}
+
+.discover-genre-option.clear-option {
+  color: #ef4444;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  margin-bottom: 2px;
+  padding-bottom: 10px;
+}
+
+/* ── Results grid ────────────────────────────────────────────── */
+.discover-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 24px 20px;
+}
+
+/* ── Discover card (same sizing as MediaCard) ────────────────── */
+.discover-card {
+  display: flex;
+  flex-direction: column;
+  cursor: pointer;
+  text-decoration: none;
+  color: inherit;
+}
+
+.discover-card:hover {
+  z-index: 10;
+}
+
+.discover-card-poster {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 2/3;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid transparent;
+  transition: border-color var(--transition-normal);
+}
+
+.discover-card:hover .discover-card-poster {
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.discover-card-poster img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.discover-card-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.2;
+}
+
+.discover-card-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity var(--transition-normal);
+}
+
+.discover-card:hover .discover-card-overlay {
+  opacity: 1;
+}
+
+.discover-card-overlay .play-btn {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.9);
+  color: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border: none;
+}
+
+.discover-card-rating {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: rgba(0, 0, 0, 0.6);
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.discover-card-rating .star {
+  color: #fbbf24;
+  font-size: 11px;
+}
+
+.discover-card-info {
+  padding: 10px 2px;
+}
+
+.discover-card-title {
+  font-size: 13px;
+  font-weight: 500;
+  margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text-primary);
+}
+
+.discover-card-meta {
+  display: flex;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.discover-card-meta .dot {
+  opacity: 0.3;
+  font-size: 8px;
+}
+
+/* ── Skeleton ────────────────────────────────────────────────── */
+.discover-skeleton {
+  display: flex;
+  flex-direction: column;
+}
+
+.discover-skeleton .skeleton-poster {
+  aspect-ratio: 2/3;
+  border-radius: var(--radius-lg);
+  background: rgba(255, 255, 255, 0.04);
+  animation: skeleton-pulse 1.8s ease-in-out infinite;
+}
+
+.discover-skeleton .skeleton-title {
+  height: 14px;
+  border-radius: var(--radius-xs);
+  background: rgba(255, 255, 255, 0.04);
+  margin-top: 10px;
+  width: 80%;
+}
+
+.discover-skeleton .skeleton-meta {
+  height: 11px;
+  border-radius: var(--radius-xs);
+  background: rgba(255, 255, 255, 0.03);
+  margin-top: 6px;
+  width: 50%;
+}
+
+/* ── Sentinel & Empty ────────────────────────────────────────── */
+.discover-sentinel {
+  display: flex;
+  justify-content: center;
+  padding: 32px 0;
+}
+
+.discover-loading-more {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.discover-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 24px;
+  text-align: center;
+  opacity: 0.3;
+}
+
+.discover-empty h2 {
+  font-size: 18px;
+  font-weight: 600;
+  margin-top: 16px;
+  margin-bottom: 6px;
+}
+
+.discover-empty p {
+  color: var(--text-tertiary);
+  font-size: 13px;
+}

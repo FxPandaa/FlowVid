@@ -41,6 +41,7 @@ interface SettingsState {
   theme: Theme;
   showWatchedIndicator: boolean;
   showRatings: boolean;
+  showForYou: boolean;
 
   // Scraping settings
   enabledScrapers: string[];
@@ -69,6 +70,7 @@ interface SettingsState {
   setTheme: (theme: Theme) => void;
   setShowWatchedIndicator: (show: boolean) => void;
   setShowRatings: (show: boolean) => void;
+  setShowForYou: (show: boolean) => void;
   toggleScraper: (scraperId: string) => void;
   setUseTorrentioBackup: (enabled: boolean) => void;
   setScrapingTimeout: (timeout: number) => void;
@@ -137,6 +139,7 @@ const defaultSettings = {
   theme: "dark" as Theme,
   showWatchedIndicator: true,
   showRatings: true,
+  showForYou: true,
   // Enable all scrapers by default for maximum coverage
   enabledScrapers: [
     // Tier 1 - Primary scrapers (most reliable)
@@ -158,6 +161,7 @@ const defaultSettings = {
 
     // Tier 4 - Backup/Meta-scrapers (most reliable for overall coverage)
     "torrentio", // Backup - Stremio addon (aggregates 25+ sources)
+    "mediafusion", // Backup - Stremio addon (alternative aggregator)
 
     // Note: torrentgalaxy and limetorrents are disabled by default due to
     // Cloudflare protection causing network errors. Users can enable them
@@ -278,6 +282,10 @@ export const useSettingsStore = create<SettingsState>()(
 
       setShowRatings: (show: boolean) => {
         set({ showRatings: show });
+      },
+
+      setShowForYou: (show: boolean) => {
+        set({ showForYou: show });
       },
 
       toggleScraper: (scraperId: string) => {
@@ -411,7 +419,9 @@ export const useSettingsStore = create<SettingsState>()(
             }),
           });
         } catch (error) {
-          console.error("Failed to sync settings with server:", error);
+          // Only log real errors, not network failures from unconnected backend
+          if (error instanceof TypeError && (error.message.includes('Failed to fetch') || error.message.includes('NetworkError'))) return;
+          console.error('Failed to sync settings with server:', error);
         }
       },
 
@@ -441,7 +451,9 @@ export const useSettingsStore = create<SettingsState>()(
             }
           }
         } catch (error) {
-          console.error("Failed to load settings from server:", error);
+          // Only log real errors, not network failures from unconnected backend
+          if (error instanceof TypeError && (error.message.includes('Failed to fetch') || error.message.includes('NetworkError'))) return;
+          console.error('Failed to load settings from server:', error);
         }
       },
     }),

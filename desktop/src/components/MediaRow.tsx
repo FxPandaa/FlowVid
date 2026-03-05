@@ -1,4 +1,5 @@
 import { useRef } from "react";
+import { Link } from "react-router-dom";
 import { MediaItem } from "../services/metadata/cinemeta";
 import { MediaCard } from "./MediaCard";
 import { ChevronLeft, ChevronRight } from "./Icons";
@@ -10,6 +11,7 @@ interface MediaRowProps {
   isLoading?: boolean;
   variant?: "poster" | "landscape";
   size?: "small" | "medium" | "large";
+  viewMoreLink?: string;
 }
 
 export function MediaRow({
@@ -18,6 +20,7 @@ export function MediaRow({
   isLoading = false,
   variant = "poster",
   size = "medium",
+  viewMoreLink,
 }: MediaRowProps) {
   const rowRef = useRef<HTMLDivElement>(null);
 
@@ -62,6 +65,11 @@ export function MediaRow({
     <section className="media-row">
       <div className="media-row-header">
         <h2 className="media-row-title">{title}</h2>
+        {viewMoreLink && (
+          <Link to={viewMoreLink} className="media-row-view-more">
+            View More
+          </Link>
+        )}
       </div>
 
       <div className="media-row-scroll-wrapper">

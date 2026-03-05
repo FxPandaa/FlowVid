@@ -12,6 +12,9 @@ const CROSSFADE_DURATION = 800; // ms — matches CSS transition
 const preloadedUrls = new Set<string>();
 /** Module-level set for images that have fully loaded into the browser cache. */
 const loadedUrls = new Set<string>();
+/** Module-level cache of the last displayed hero backdrop so remounting
+ *  after page navigation never starts with a blank frame. */
+let _lastHeroBaseUrl: string | null = null;
 
 function preloadImage(url: string | undefined | null) {
   if (!url || preloadedUrls.has(url)) return;
@@ -58,7 +61,19 @@ export function HeroBanner({ items, isLoading = false }: HeroBannerProps) {
   //   topUrl   — fades in from opacity 0 → 1 on top, then gets copied to baseUrl
   // After the crossfade finishes, baseUrl becomes the new image and topUrl is
   // hidden instantly (no reverse animation) so the next transition can begin.
-  const [baseUrl, setBaseUrl] = useState<string | null>(null);
+  //
+  // Initialise from the module-level _lastHeroBaseUrl first (survives
+  // unmount/remount when navigating pages), then fall back to items prop,
+  // then null.  This completely eliminates the blank-frame flash.
+  const [baseUrl, _setBaseUrl] = useState<string | null>(
+    () => _lastHeroBaseUrl ?? items[0]?.backdrop ?? null,
+  );
+
+  // Wrap setter so every update also persists to the module-level cache.
+  const setBaseUrl = useCallback((url: string | null) => {
+    _lastHeroBaseUrl = url;
+    _setBaseUrl(url);
+  }, []);
   const [topUrl, setTopUrl] = useState<string | null>(null);
   const [showTop, setShowTop] = useState(false);
   const crossfadeRef = useRef(false);
@@ -66,13 +81,12 @@ export function HeroBanner({ items, isLoading = false }: HeroBannerProps) {
   const item = items.length > 0 ? items[activeIndex % items.length] : null;
   const validLogo = useValidatedImage(item?.logo);
 
-  // Set up the initial backdrop once we have the first item
+  // When items arrive (possibly after mount) make sure we have a baseUrl.
+  // Also handles the case where items are initially empty then populated.
   useEffect(() => {
     if (!item?.backdrop) return;
     if (baseUrl === null) {
-      ensureImageLoaded(item.backdrop).then(() => {
-        setBaseUrl(item.backdrop!);
-      });
+      setBaseUrl(item.backdrop!);
     }
   }, [item?.backdrop]); // eslint-disable-line react-hooks/exhaustive-deps
 

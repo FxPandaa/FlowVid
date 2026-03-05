@@ -61,7 +61,7 @@ export function Layout() {
                 </linearGradient>
               </defs>
             </svg>
-            <span className="logo-text">FlowVid</span>
+            <span className="logo-text"><span className="logo-text-flow">Flow</span>Vid</span>
           </NavLink>
 
           <div className="nav-links">
@@ -72,6 +72,14 @@ export function Layout() {
               }
             >
               Home
+            </NavLink>
+            <NavLink
+              to="/discover"
+              className={({ isActive }) =>
+                isActive ? "nav-link active" : "nav-link"
+              }
+            >
+              Discover
             </NavLink>
             <NavLink
               to="/library"
@@ -123,7 +131,7 @@ export function Layout() {
 
             {isAuthenticated ? (
               <div className="user-menu">
-                <span className="user-name">{user?.username}</span>
+                <span className="user-name">{user?.username || user?.email}</span>
                 <button onClick={handleLogout} className="logout-btn">
                   Logout
                 </button>

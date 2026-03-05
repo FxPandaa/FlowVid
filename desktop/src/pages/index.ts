@@ -7,3 +7,5 @@ export { SettingsPage } from "./SettingsPage";
 export { CalendarPage } from "./CalendarPage";
 export { LoginPage } from "./LoginPage";
 export { ProfileSelectPage } from "./ProfileSelectPage";
+export { DiscoverPage } from "./DiscoverPage";
+export { BrowsePage } from "./BrowsePage";

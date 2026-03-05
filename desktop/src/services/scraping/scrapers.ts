@@ -1271,6 +1271,124 @@ class NyaaScraper implements Scraper {
 // EXPORT ALL SCRAPERS
 // ============================================================================
 
+// MediaFusion - Stremio addon (alternative to Torrentio)
+class MediaFusionScraper implements Scraper {
+  id = "mediafusion";
+  name = "MediaFusion";
+  tier = 4;
+  type = "addon" as const;
+  specialty = "general" as const;
+
+  private baseUrl = "https://mediafusion.elfhosted.com";
+
+  async search(query: MediaQuery): Promise<TorrentResult[]> {
+    try {
+      const type = query.type === "movie" ? "movie" : "series";
+      let url = `${this.baseUrl}/stream/${type}/${query.imdbId}`;
+
+      if (
+        query.type === "series" &&
+        query.season !== undefined &&
+        query.episode !== undefined
+      ) {
+        url += `:${query.season}:${query.episode}`;
+      }
+
+      url += ".json";
+
+      console.log("MediaFusion request URL:", url);
+
+      const response = await tauriFetch(url, {
+        method: "GET",
+        headers: {
+          "User-Agent": "FlowVid/1.0",
+        },
+      });
+
+      if (!response.ok) {
+        console.error(`MediaFusion HTTP error: ${response.status}`);
+        throw new Error(`MediaFusion returned ${response.status}`);
+      }
+
+      const data = await response.json();
+      const streams = data.streams || [];
+
+      console.log(`MediaFusion found ${streams.length} streams`);
+
+      return streams.map((stream: any, index: number) => {
+        const title = stream.title || stream.name || "Unknown";
+        const infoHash =
+          stream.infoHash || this.extractInfoHash(stream.url || "");
+
+        if (!infoHash) return null;
+
+        const magnetUri = buildMagnetUri(infoHash, title);
+
+        // Extract provider from title (format: "[Provider] ..." or "Provider\n...")
+        const providerMatch = title.match(/\[([^\]]+)\]/);
+        const provider = providerMatch
+          ? `MF: ${providerMatch[1]}`
+          : "MediaFusion";
+
+        return {
+          id: `mediafusion-${index}-${infoHash.slice(0, 8)}`,
+          title: title
+            .replace(/[🎬📺👤💾🔊⚡]/g, "")
+            .replace(/\n/g, " ")
+            .trim(),
+          size: this.parseSize(title),
+          sizeFormatted: this.extractSizeString(title),
+          seeds: this.extractSeeds(title),
+          peers: 0,
+          quality: parseQuality(title),
+          codec: parseCodec(title),
+          source: parseSource(title),
+          infoHash,
+          magnetUri,
+          provider,
+        };
+      }).filter(Boolean) as TorrentResult[];
+    } catch (error) {
+      console.error("MediaFusion search failed:", error);
+      return [];
+    }
+  }
+
+  private extractInfoHash(url: string): string {
+    const magnetMatch = url.match(/btih:([a-fA-F0-9]{40})/i);
+    if (magnetMatch) return magnetMatch[1].toLowerCase();
+    if (/^[a-fA-F0-9]{40}$/i.test(url)) return url.toLowerCase();
+    return "";
+  }
+
+  private parseSize(title: string): number {
+    const sizeMatch = title.match(/(\d+(?:\.\d+)?)\s*(GB|MB|TB)/i);
+    if (!sizeMatch) return 0;
+    const value = parseFloat(sizeMatch[1]);
+    const unit = sizeMatch[2].toUpperCase();
+    switch (unit) {
+      case "TB":
+        return value * 1024 * 1024 * 1024 * 1024;
+      case "GB":
+        return value * 1024 * 1024 * 1024;
+      case "MB":
+        return value * 1024 * 1024;
+      default:
+        return value;
+    }
+  }
+
+  private extractSizeString(title: string): string {
+    const sizeMatch = title.match(/(\d+(?:\.\d+)?\s*(?:GB|MB|TB))/i);
+    return sizeMatch ? sizeMatch[1] : "Unknown";
+  }
+
+  private extractSeeds(title: string): number {
+    const seedMatch = title.match(/👤\s*(\d+)/);
+    return seedMatch ? parseInt(seedMatch[1], 10) : 0;
+  }
+}
+
 export const scrapers: Scraper[] = [
   // Tier 1 - Primary (working scrapers with real implementations)
   new YTSScraper(), // Movies - working API
@@ -1291,4 +1409,5 @@ export const scrapers: Scraper[] = [
 
   // Tier 4 - Backup/Meta-scrapers
   new TorrentioScraper(), // Backup - Stremio addon (aggregates 25+ sources)
+  new MediaFusionScraper(), // Backup - Stremio addon (alternative aggregator)
 ];

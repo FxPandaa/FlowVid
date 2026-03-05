@@ -48,6 +48,10 @@ src-tauri/gen/
 
 # MPV Binaries (too large for GitHub - distribute via releases)
 desktop/src-tauri/resources/mpv/*.dll
+
+# Internal docs (not for public GitHub)
+DEPLOY.md
+README-TORBOX.md
 desktop/src-tauri/resources/mpv/*.exe
 desktop/src-tauri/lib/
 

@@ -45,7 +45,7 @@ router.post(
   "/register",
   validateBody(registerSchema),
   asyncHandler(async (req: Request, res: Response) => {
-    const { email, password } = req.body as { email: string; password: string };
+    const { email, username, password } = req.body as { email: string; username: string; password: string };
     const db = getDb();
 
     // Hash password before transaction (async, don't block inside tx)
@@ -70,8 +70,8 @@ router.post(
 
       // Create user
       db.prepare(
-        `INSERT INTO users (id, email, password_hash) VALUES (?, ?, ?)`,
-      ).run(userId, email.toLowerCase(), passwordHash);
+        `INSERT INTO users (id, email, username, password_hash) VALUES (?, ?, ?, ?)`,
+      ).run(userId, email.toLowerCase(), username, passwordHash);
 
       // Create default preferences
       db.prepare(`INSERT INTO user_preferences (user_id) VALUES (?)`).run(
@@ -92,6 +92,7 @@ router.post(
         user: {
           id: userId,
           email: email.toLowerCase(),
+          username,
           createdAt: new Date().toISOString(),
         },
         tokens: {
@@ -120,7 +121,7 @@ router.post(
     // Find user
     const user = db
       .prepare(
-        `SELECT id, email, password_hash, created_at FROM users WHERE email = ?`,
+        `SELECT id, email, username, password_hash, created_at FROM users WHERE email = ?`,
       )
       .get(email.toLowerCase()) as User | undefined;
 
@@ -156,6 +157,7 @@ router.post(
         user: {
           id: user.id,
           email: user.email,
+          username: user.username || '',
           createdAt: user.created_at,
         },
         tokens: {
@@ -199,8 +201,8 @@ router.post(
 
       // Get user
       const user = db
-        .prepare(`SELECT id, email FROM users WHERE id = ?`)
-        .get(userId) as { id: string; email: string } | undefined;
+        .prepare(`SELECT id, email, username FROM users WHERE id = ?`)
+        .get(userId) as { id: string; email: string; username?: string } | undefined;
 
       if (!user) {
         throw new NotFoundError("User not found");
@@ -230,9 +232,19 @@ router.post(
 
     const tokens = refreshTx();
 
+    // Get user info to return alongside tokens
+    const refreshedUser = db
+      .prepare(`SELECT id, email, username FROM users WHERE id = ?`)
+      .get(userId) as { id: string; email: string; username?: string } | undefined;
+
     res.json({
       success: true,
       data: {
+        user: refreshedUser ? {
+          id: refreshedUser.id,
+          email: refreshedUser.email,
+          username: refreshedUser.username || '',
+        } : undefined,
         tokens: {
           accessToken: tokens.accessToken,
           refreshToken: tokens.refreshToken,

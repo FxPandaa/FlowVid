@@ -15,6 +15,7 @@ export type {
   TmdbPersonDetails,
   TmdbPersonCredit,
   TmdbEpisodeRating,
+  TmdbDiscoverItem,
 } from "./metadata";
 
 export { searchTorrents, scrapingEngine } from "./scraping";

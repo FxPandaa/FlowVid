@@ -10,6 +10,8 @@ import {
   CalendarPage,
   LoginPage,
   ProfileSelectPage,
+  DiscoverPage,
+  BrowsePage,
 } from "./pages";
 import { useProfileStore, useSettingsStore } from "./stores";
 import { useFeatureGate } from "./hooks/useFeatureGate";
@@ -53,7 +55,7 @@ function AppInitializer({ children }: { children: React.ReactNode }) {
     }
   }, [isAuthenticated, fetchStatus]);
 
-  // Silently refresh library/history/collections + settings from server on login.
+  // Silently refresh library/history + settings from server on login.
   // localStorage data is already shown immediately via Zustand persist,
   // so this runs in the background and updates the UI once the response arrives.
   useEffect(() => {
@@ -83,6 +85,8 @@ function App() {
           >
             <Route index element={<HomePage />} />
             <Route path="search" element={<SearchPage />} />
+            <Route path="discover" element={<DiscoverPage />} />
+            <Route path="browse/:category" element={<BrowsePage />} />
             <Route path="details/:type/:id" element={<DetailsPage />} />
             <Route path="player/:type/:id" element={<PlayerPage />} />
             <Route

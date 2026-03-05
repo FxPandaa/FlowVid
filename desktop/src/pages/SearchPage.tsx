@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
-import { cinemetaService, MediaItem } from "../services";
+import { cinemetaService, tmdbService, MediaItem } from "../services";
 import { MediaCard } from "../components";
 import { Search, Film } from "../components/Icons";
 import "./SearchPage.css";
@@ -24,6 +24,11 @@ export function SearchPage() {
     try {
       const searchResult = await cinemetaService.search(query);
       setResults(searchResult.results);
+
+      // Enrich items missing ratings with TMDB data (non-blocking)
+      tmdbService.enrichRatings(searchResult.results).then((enriched) => {
+        setResults([...enriched]);
+      });
     } catch (error) {
       console.error("Search failed:", error);
       setResults([]);
@@ -83,7 +88,8 @@ export function SearchPage() {
             <MediaCard
               key={`${item.type}-${item.id}`}
               item={item}
-              size="large"
+              size="medium"
+              showRating
             />
           ))}
         </div>

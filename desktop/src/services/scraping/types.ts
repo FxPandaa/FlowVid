@@ -38,6 +38,7 @@ export interface MediaQuery {
 
 export const AVAILABLE_SCRAPERS: ScraperConfig[] = [
   { id: "torrentio", name: "Torrentio", enabled: true },
+  { id: "mediafusion", name: "MediaFusion", enabled: true },
   { id: "yts", name: "YTS", enabled: true },
   { id: "eztv", name: "EZTV", enabled: true },
   { id: "1337x", name: "1337x", enabled: true },

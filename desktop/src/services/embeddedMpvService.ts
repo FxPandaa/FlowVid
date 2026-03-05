@@ -77,13 +77,27 @@ const HIGH_QUALITY_PROFILE: Record<string, string> = {
 
   // --- HDR → SDR tone-mapping ---
   // 'mobius' preserves shadow detail better than 'hable' on SDR displays.
+  // Keeps in-range colours accurate while softly rolling off highlights.
   "tone-mapping": "mobius",
+  "tone-mapping-param": "0.3",
 
-  // Brightness / gamma / contrast tweaks to lift crushed blacks
-  // and reduce harsh contrast on typical SDR monitors.
-  brightness: "5",
-  gamma: "5",
-  contrast: "-3",
+  // --- Debanding fine-tuning ---
+  // Slightly stronger deband passes for gradient banding in dark scenes.
+  "deband-iterations": "2",
+  "deband-threshold": "48",
+  "deband-range": "16",
+  "deband-grain": "24",
+
+  // --- Hardware decoding ---
+  // Let MPV pick the best safe hardware decoder (D3D11VA on Windows).
+  // Falls back to software decoding automatically if unsupported.
+  hwdec: "auto",
+
+  // --- Colour neutrality ---
+  // Do NOT set brightness, gamma, or contrast overrides.
+  // Static values (e.g. brightness=5, gamma=5, contrast=-3) look good
+  // on some content but break others. Leaving them at the default (0)
+  // lets MPV reproduce the source faithfully on every file.
 };
 
 export interface AudioTrack {

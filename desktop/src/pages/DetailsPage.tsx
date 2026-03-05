@@ -78,9 +78,6 @@ export function DetailsPage() {
     toggleFavorite,
     toggleWatchlist,
     library,
-    collections,
-    addToCollection,
-    removeFromCollection,
     getWatchProgress,
   } = useLibraryStore();
   const { activeDebridService, blurUnwatchedEpisodes } = useSettingsStore();
@@ -265,19 +262,6 @@ export function DetailsPage() {
   const handleWatchlistToggle = () => {
     if (!details?.imdbId || !inLibrary) return;
     toggleWatchlist(details.imdbId);
-  };
-
-  const handleToggleCollectionItem = (collectionId: string) => {
-    if (!details?.imdbId || !inLibrary) return;
-
-    const collection = collections.find((c) => c.id === collectionId);
-    if (!collection) return;
-
-    if (collection.items.includes(details.imdbId)) {
-      removeFromCollection(collectionId, details.imdbId);
-    } else {
-      addToCollection(collectionId, details.imdbId);
-    }
   };
 
   if (isLoading) {
@@ -523,37 +507,6 @@ export function DetailsPage() {
       {/* Scrollable content below the hero */}
       <div className="details-sections">
 
-
-        {/* Collections - only show if in library */}
-        {inLibrary && collections.length > 0 && (
-          <div className="details-section">
-            <div className="details-collections">
-              <h4>Collections</h4>
-              <div className="collections-checkboxes">
-                {collections.map((collection) => {
-                  const isInCollection = collection.items.includes(
-                    details.imdbId!,
-                  );
-                  return (
-                    <label key={collection.id} className="collection-checkbox">
-                      <input
-                        type="checkbox"
-                        checked={isInCollection}
-                        onChange={() =>
-                          handleToggleCollectionItem(collection.id)
-                        }
-                      />
-                      <span>{collection.name}</span>
-                      <span className="collection-count">
-                        ({collection.items.length})
-                      </span>
-                    </label>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* Trailers — from TMDB */}
         {enrichedData &&

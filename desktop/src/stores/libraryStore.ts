@@ -49,14 +49,7 @@ export interface WatchHistoryItem {
   torrentProvider?: string; // Provider (torrentio, yts, etc)
 }
 
-export interface LibraryCollection {
-  id: string;
-  name: string;
-  description?: string;
-  items: string[]; // Array of imdbIds
-  createdAt: string;
-  updatedAt: string;
-}
+
 
 export type LibraryFilter =
   | "all"
@@ -69,14 +62,12 @@ export type LibrarySortBy = "recent" | "title" | "year" | "rating" | "runtime";
 interface ProfileLibraryData {
   library: LibraryItem[];
   watchHistory: WatchHistoryItem[];
-  collections: LibraryCollection[];
 }
 
 interface LibraryState {
   // Active profile's data (what consumers read/write)
   library: LibraryItem[];
   watchHistory: WatchHistoryItem[];
-  collections: LibraryCollection[];
   isLoading: boolean;
   isSyncing: boolean;
   lastSyncAt: string | null;
@@ -117,13 +108,6 @@ interface LibraryState {
   clearWatchHistory: () => void;
   removeFromHistory: (id: string) => void;
 
-  // Collections
-  createCollection: (name: string, description?: string) => string;
-  deleteCollection: (id: string) => void;
-  addToCollection: (collectionId: string, imdbId: string) => void;
-  removeFromCollection: (collectionId: string, imdbId: string) => void;
-  renameCollection: (id: string, name: string) => void;
-
   // Filter/Sort
   setFilter: (filter: LibraryFilter) => void;
   setSortBy: (sortBy: LibrarySortBy) => void;
@@ -153,7 +137,6 @@ export const useLibraryStore = create<LibraryState>()(
     (set, get) => ({
       library: [],
       watchHistory: [],
-      collections: [],
       isLoading: false,
       isSyncing: false,
       lastSyncAt: null,
@@ -172,7 +155,6 @@ export const useLibraryStore = create<LibraryState>()(
           const currentData: ProfileLibraryData = {
             library: state.library,
             watchHistory: state.watchHistory,
-            collections: state.collections,
           };
 
           set((s) => ({
@@ -188,15 +170,13 @@ export const useLibraryStore = create<LibraryState>()(
           ? state.profileData[profileId] || {
               library: [],
               watchHistory: [],
-              collections: [],
             }
-          : { library: [], watchHistory: [], collections: [] };
+          : { library: [], watchHistory: [] };
 
         set({
           currentProfileId: profileId,
           library: newData.library,
           watchHistory: newData.watchHistory,
-          collections: newData.collections,
           activeFilter: "all",
           sortBy: "recent",
           searchQuery: "",
@@ -224,11 +204,6 @@ export const useLibraryStore = create<LibraryState>()(
       removeFromLibrary: (imdbId: string) => {
         set((state) => ({
           library: state.library.filter((item) => item.imdbId !== imdbId),
-          // Also remove from all collections
-          collections: state.collections.map((col) => ({
-            ...col,
-            items: col.items.filter((id) => id !== imdbId),
-          })),
         }));
 
         // Sync in background
@@ -369,63 +344,6 @@ export const useLibraryStore = create<LibraryState>()(
         debouncedSync(() => get().syncWithServer());
       },
 
-      // Collections
-      createCollection: (name: string, description?: string) => {
-        const newCollection: LibraryCollection = {
-          id: crypto.randomUUID(),
-          name,
-          description,
-          items: [],
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        };
-
-        set((state) => ({
-          collections: [...state.collections, newCollection],
-        }));
-
-        debouncedSync(() => get().syncWithServer());
-        return newCollection.id;
-      },
-
-      deleteCollection: (id: string) => {
-        set((state) => ({
-          collections: state.collections.filter((col) => col.id !== id),
-        }));
-        debouncedSync(() => get().syncWithServer());
-      },
-
-      addToCollection: (collectionId: string, imdbId: string) => {
-        set((state) => ({
-          collections: state.collections.map((col) =>
-            col.id === collectionId && !col.items.includes(imdbId)
-              ? { ...col, items: [...col.items, imdbId] }
-              : col,
-          ),
-        }));
-        debouncedSync(() => get().syncWithServer());
-      },
-
-      removeFromCollection: (collectionId: string, imdbId: string) => {
-        set((state) => ({
-          collections: state.collections.map((col) =>
-            col.id === collectionId
-              ? { ...col, items: col.items.filter((id) => id !== imdbId) }
-              : col,
-          ),
-        }));
-        debouncedSync(() => get().syncWithServer());
-      },
-
-      renameCollection: (id: string, name: string) => {
-        set((state) => ({
-          collections: state.collections.map((col) =>
-            col.id === id ? { ...col, name } : col,
-          ),
-        }));
-        debouncedSync(() => get().syncWithServer());
-      },
-
       // Filter/Sort
       setFilter: (filter: LibraryFilter) => {
         set({ activeFilter: filter });
@@ -514,7 +432,7 @@ export const useLibraryStore = create<LibraryState>()(
         const profileId = state.currentProfileId;
 
         try {
-          // Fire all three sync requests in parallel — ~3× faster than sequential
+          // Fire both sync requests in parallel
           await Promise.all([
             fetch(`${API_URL}/sync/library`, {
               method: "POST",
@@ -532,22 +450,13 @@ export const useLibraryStore = create<LibraryState>()(
               },
               body: JSON.stringify({ profileId, history: state.watchHistory }),
             }),
-            fetch(`${API_URL}/sync/collections`, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${authState.token}`,
-              },
-              body: JSON.stringify({
-                profileId,
-                collections: state.collections,
-              }),
-            }),
           ]);
 
           set({ lastSyncAt: new Date().toISOString() });
         } catch (error) {
-          console.error("Failed to sync with server:", error);
+          // Only log real errors, not network failures from unconnected backend
+          if (error instanceof TypeError && (error.message.includes('Failed to fetch') || error.message.includes('NetworkError'))) return;
+          console.error('Failed to sync with server:', error);
         } finally {
           set({ isSyncing: false });
         }
@@ -577,12 +486,13 @@ export const useLibraryStore = create<LibraryState>()(
             set({
               library: data.library || [],
               watchHistory: data.history || [],
-              collections: data.collections || [],
               lastSyncAt: new Date().toISOString(),
             });
           }
         } catch (error) {
-          console.error("Failed to load from server:", error);
+          // Only log real errors, not network failures from unconnected backend
+          if (error instanceof TypeError && (error.message.includes('Failed to fetch') || error.message.includes('NetworkError'))) return;
+          console.error('Failed to load from server:', error);
         } finally {
           set({ isLoading: false });
         }
@@ -594,7 +504,6 @@ export const useLibraryStore = create<LibraryState>()(
       partialize: (state) => ({
         library: state.library,
         watchHistory: state.watchHistory,
-        collections: state.collections,
         profileData: state.profileData,
         currentProfileId: state.currentProfileId,
         activeFilter: state.activeFilter,

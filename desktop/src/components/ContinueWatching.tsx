@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { WatchHistoryItem, useLibraryStore } from "../stores/libraryStore";
 import { useValidatedImage } from "../utils/useValidatedImage";
-import { Film, Tv, Play, X } from "./Icons";
+import { Film, Tv, Play, X, ChevronLeft, ChevronRight } from "./Icons";
 import "./ContinueWatching.css";
 
 interface ContinueWatchingProps {
@@ -13,22 +13,15 @@ interface ContinueWatchingProps {
 export function ContinueWatching({ items }: ContinueWatchingProps) {
   const listRef = useRef<HTMLDivElement>(null);
 
-  const handleWheel = useCallback((e: WheelEvent) => {
-    const el = listRef.current;
-    if (!el || e.deltaY === 0) return;
-    // Only hijack scroll when the list is actually scrollable
-    const isScrollable = el.scrollWidth > el.clientWidth;
-    if (!isScrollable) return;
-    e.preventDefault();
-    el.scrollBy({ left: e.deltaY * 1.5, behavior: 'smooth' });
-  }, []);
-
-  useEffect(() => {
-    const el = listRef.current;
-    if (!el) return;
-    el.addEventListener("wheel", handleWheel, { passive: false });
-    return () => el.removeEventListener("wheel", handleWheel);
-  }, [handleWheel]);
+  const scroll = (direction: "left" | "right") => {
+    if (listRef.current) {
+      const scrollAmount = listRef.current.clientWidth * 0.8;
+      listRef.current.scrollBy({
+        left: direction === "left" ? -scrollAmount : scrollAmount,
+        behavior: "smooth",
+      });
+    }
+  };
 
   if (items.length === 0) return null;
 
@@ -37,10 +30,26 @@ export function ContinueWatching({ items }: ContinueWatchingProps) {
       <div className="continue-watching-header">
         <h2>Continue Watching</h2>
       </div>
-      <div className="continue-watching-list" ref={listRef}>
-        {items.slice(0, 10).map((item) => (
-          <ContinueWatchingCard key={item.id} item={item} />
-        ))}
+      <div className="continue-watching-scroll-wrapper">
+        <button
+          className="continue-scroll-btn continue-scroll-left"
+          onClick={() => scroll("left")}
+          aria-label="Scroll left"
+        >
+          <ChevronLeft size={18} />
+        </button>
+        <div className="continue-watching-list" ref={listRef}>
+          {items.slice(0, 10).map((item) => (
+            <ContinueWatchingCard key={item.id} item={item} />
+          ))}
+        </div>
+        <button
+          className="continue-scroll-btn continue-scroll-right"
+          onClick={() => scroll("right")}
+          aria-label="Scroll right"
+        >
+          <ChevronRight size={18} />
+        </button>
       </div>
     </div>
   );

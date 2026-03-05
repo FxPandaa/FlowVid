@@ -91,7 +91,7 @@ export function MediaCard({
         </div>
 
         <div className="media-card-landscape-meta">
-          <span className="year">{item.year || "TBA"}</span>
+          <span className="year">{item.year || item.releaseInfo || "TBA"}</span>
           <span className="dot">·</span>
           <span className="type">
             {item.type === "movie" ? "Movie" : "Series"}
@@ -158,7 +158,7 @@ export function MediaCard({
       <div className="media-card-info">
         <h3 className="media-card-title">{item.title}</h3>
         <div className="media-card-meta">
-          <span className="year">{item.year || "TBA"}</span>
+          <span className="year">{item.year || item.releaseInfo || "TBA"}</span>
           <span className="type">
             {item.type === "movie" ? "Movie" : "Series"}
           </span>

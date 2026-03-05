@@ -40,18 +40,42 @@
   margin: 0 auto;
 }
 
-/* Logo -- plain white, clean */
+/* Logo -- subtle ambient glow */
 .logo {
   display: flex;
   align-items: center;
   gap: 10px;
   text-decoration: none;
   color: var(--text-primary);
+  position: relative;
+}
+
+/* Soft ambient glow behind the logo icon */
+.logo::before {
+  content: "";
+  position: absolute;
+  left: -6px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgba(0, 229, 255, 0.06) 0%,
+    rgba(0, 102, 255, 0.03) 50%,
+    transparent 70%
+  );
+  animation: logoAmbientPulse 8s ease-in-out infinite;
+  pointer-events: none;
+  z-index: -1;
 }
 
 .logo-mark {
   flex-shrink: 0;
-  filter: drop-shadow(0 1px 3px rgba(0, 229, 255, 0.25));
+  filter: drop-shadow(0 0 3px rgba(0, 229, 255, 0.15))
+    drop-shadow(0 0 8px rgba(0, 102, 255, 0.08));
+  animation: logoMarkGlow 8s ease-in-out infinite;
 }
 
 .logo-text {
@@ -59,6 +83,55 @@
   font-weight: 700;
   letter-spacing: -0.03em;
   color: var(--text-primary);
+}
+
+.logo-text-flow {
+  background: linear-gradient(
+    90deg,
+    var(--primary) 0%,
+    var(--primary) 40%,
+    color-mix(in srgb, var(--primary) 70%, #fff) 50%,
+    var(--primary) 60%,
+    var(--primary) 100%
+  );
+  background-size: 300% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: logoTextShimmer 20s linear infinite;
+}
+
+@keyframes logoAmbientPulse {
+  0%,
+  100% {
+    opacity: 0.4;
+    transform: translateY(-50%) scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: translateY(-50%) scale(1.08);
+  }
+}
+
+@keyframes logoMarkGlow {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 2px rgba(0, 229, 255, 0.12))
+      drop-shadow(0 0 6px rgba(0, 102, 255, 0.06));
+  }
+  50% {
+    filter: drop-shadow(0 0 4px rgba(0, 229, 255, 0.22))
+      drop-shadow(0 0 10px rgba(0, 102, 255, 0.1));
+  }
+}
+
+@keyframes logoTextShimmer {
+  0% {
+    background-position: 100% center;
+  }
+  100% {
+    background-position: -200% center;
+  }
 }
 
 /* Nav links -- clean, flat */

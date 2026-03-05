@@ -96,8 +96,16 @@ interface CatalogResponse {
 
 // Normalize raw cinemeta data to our MediaItem format
 function normalizeMediaItem(raw: CinemetaRawMeta): MediaItem {
+  // Parse year from releaseInfo (e.g. "2019", "2019-2023", "2019-") when year is missing
+  let year = raw.year;
+  if (!year && raw.releaseInfo) {
+    const match = raw.releaseInfo.match(/^(\d{4})/);
+    if (match) year = parseInt(match[1], 10);
+  }
+
   return {
     ...raw,
+    year,
     imdbId: raw.id,
     title: raw.name,
     overview: raw.description,

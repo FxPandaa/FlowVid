@@ -1303,22 +1303,53 @@ export function PlayerPage() {
 
       {isLoading && (
         <div className="player-loading">
+          {/* Fluid aurora background */}
+          <div className="aurora-container">
+            <div className="aurora-blob aurora-blob-1" />
+            <div className="aurora-blob aurora-blob-2" />
+            <div className="aurora-blob aurora-blob-3" />
+            <div className="aurora-blob aurora-blob-4" />
+          </div>
+
+          {/* Movie/series poster that breathes in and out through the aurora */}
           {contentDetails?.background || contentDetails?.backdrop ? (
-            <img
-              className="player-loading-backdrop"
-              src={contentDetails.background || contentDetails.backdrop}
-              alt=""
-            />
+            <div className="aurora-poster-wrap">
+              <img
+                className="aurora-poster"
+                src={contentDetails.background || contentDetails.backdrop}
+                alt=""
+              />
+            </div>
           ) : null}
-          {contentDetails?.logo ? (
-            <img
-              className="player-loading-logo"
-              src={contentDetails.logo}
-              alt={contentDetails.title || ""}
-            />
-          ) : (
-            <p className="player-loading-title">{title || "Loading stream..."}</p>
-          )}
+
+          {/* Floating light particles */}
+          <div className="aurora-particles">
+            {Array.from({ length: 12 }).map((_, i) => (
+              <span key={i} className="aurora-particle" style={{
+                '--i': i,
+                '--x': `${10 + Math.random() * 80}%`,
+                '--y': `${10 + Math.random() * 80}%`,
+                '--d': `${4 + Math.random() * 6}s`,
+                '--s': `${2 + Math.random() * 3}px`,
+              } as React.CSSProperties} />
+            ))}
+          </div>
+
+          {/* Logo / title */}
+          <div className="aurora-title-wrap">
+            {contentDetails?.logo ? (
+              <img
+                className="aurora-logo"
+                src={contentDetails.logo}
+                alt={contentDetails.title || ""}
+              />
+            ) : (
+              <p className="aurora-title">{title || "Loading stream..."}</p>
+            )}
+            <div className="aurora-loader-bar">
+              <div className="aurora-loader-fill" />
+            </div>
+          </div>
         </div>
       )}
 

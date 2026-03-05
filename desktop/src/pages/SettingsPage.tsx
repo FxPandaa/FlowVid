@@ -60,6 +60,7 @@ export function SettingsPage() {
     subtitles,
     subtitleAppearance,
     blurUnwatchedEpisodes,
+    showForYou,
     setDebridApiKey,
     removeDebridApiKey,
     setActiveDebridService,
@@ -76,6 +77,7 @@ export function SettingsPage() {
     setPreferHearingImpaired,
     setSubtitleAppearance,
     setBlurUnwatchedEpisodes,
+    setShowForYou,
     tmdbCustomApiKey,
     tmdbUseCustomKey,
     setTmdbCustomApiKey,
@@ -848,6 +850,22 @@ export function SettingsPage() {
           <button
             className={`toggle ${blurUnwatchedEpisodes ? "active" : ""}`}
             onClick={() => setBlurUnwatchedEpisodes(!blurUnwatchedEpisodes)}
+          >
+            <span className="toggle-handle" />
+          </button>
+        </div>
+
+        <div className="setting-item">
+          <div className="setting-info">
+            <label>Show "For You" Recommendations</label>
+            <p>
+              Display personalized recommendations on the home page based on
+              your library
+            </p>
+          </div>
+          <button
+            className={`toggle ${showForYou ? "active" : ""}`}
+            onClick={() => setShowForYou(!showForYou)}
           >
             <span className="toggle-handle" />
           </button>

@@ -6,7 +6,6 @@ import { MediaCard } from "../components";
 import {
   StarFilled,
   Clipboard,
-  Folder,
   Search,
   BookOpen,
   Film,
@@ -25,24 +24,14 @@ export function LibraryPage() {
   const {
     library,
     watchHistory,
-    collections,
     activeFilter,
     sortBy,
     setFilter,
     setSortBy,
     getFilteredLibrary,
     clearWatchHistory,
-    createCollection,
-    deleteCollection,
-    renameCollection,
     removeFromLibrary,
   } = useLibraryStore();
-
-  const [showCollections, setShowCollections] = useState(false);
-  const [newCollectionName, setNewCollectionName] = useState("");
-  const [editingCollectionId, setEditingCollectionId] = useState<string | null>(
-    null,
-  );
 
   const cwListRef = useRef<HTMLDivElement>(null);
 
@@ -80,26 +69,6 @@ export function LibraryPage() {
     rating: item.rating || 0,
     genres: [],
   }));
-
-  const handleCreateCollection = () => {
-    if (newCollectionName.trim()) {
-      createCollection(newCollectionName.trim());
-      setNewCollectionName("");
-    }
-  };
-
-  const handleDeleteCollection = (id: string) => {
-    if (confirm("Are you sure you want to delete this collection?")) {
-      deleteCollection(id);
-    }
-  };
-
-  const handleRenameCollection = (id: string, newName: string) => {
-    if (newName.trim()) {
-      renameCollection(id, newName.trim());
-      setEditingCollectionId(null);
-    }
-  };
 
   // Deduplicated continue watching (most recent episode per series)
   const continueItems = watchHistory
@@ -161,81 +130,8 @@ export function LibraryPage() {
             <option value="year">Year</option>
             <option value="runtime">Runtime</option>
           </select>
-
-          <button
-            className="collections-toggle"
-            onClick={() => setShowCollections(!showCollections)}
-          >
-            <Folder size={14} /> Collections ({collections.length})
-          </button>
         </div>
       </div>
-
-      {showCollections && (
-        <div className="collections-panel">
-          <div className="collections-header">
-            <h3>Collections</h3>
-            <div className="new-collection">
-              <input
-                type="text"
-                placeholder="New collection name..."
-                value={newCollectionName}
-                onChange={(e) => setNewCollectionName(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleCreateCollection()}
-              />
-              <button onClick={handleCreateCollection}>Create</button>
-            </div>
-          </div>
-          <div className="collections-list">
-            {collections.length > 0 ? (
-              collections.map((collection) => (
-                <div key={collection.id} className="collection-item">
-                  {editingCollectionId === collection.id ? (
-                    <input
-                      type="text"
-                      defaultValue={collection.name}
-                      onBlur={(e) =>
-                        handleRenameCollection(collection.id, e.target.value)
-                      }
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          handleRenameCollection(
-                            collection.id,
-                            e.currentTarget.value,
-                          );
-                        }
-                      }}
-                      autoFocus
-                    />
-                  ) : (
-                    <>
-                      <div className="collection-info">
-                        <h4>{collection.name}</h4>
-                        <span>{collection.items.length} items</span>
-                      </div>
-                      <div className="collection-actions">
-                        <button
-                          onClick={() => setEditingCollectionId(collection.id)}
-                        >
-                          Rename
-                        </button>
-                        <button
-                          onClick={() => handleDeleteCollection(collection.id)}
-                          className="delete-btn"
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </>
-                  )}
-                </div>
-              ))
-            ) : (
-              <p className="empty-collections">No collections yet</p>
-            )}
-          </div>
-        </div>
-      )}
 
       {/* Stacked layout: Continue Watching on top, Library below */}
       <div className="library-sections">

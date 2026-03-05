@@ -125,6 +125,18 @@ export interface TmdbEpisodeRating {
   runtime: number | null;
 }
 
+export interface TmdbDiscoverItem {
+  tmdbId: number;
+  title: string;
+  posterUrl: string | null;
+  backdropUrl: string | null;
+  rating: number;
+  releaseDate: string;
+  type: "movie" | "series";
+  overview: string;
+  genreIds: number[];
+}
+
 export interface TmdbEnrichedData {
   tmdbId: number;
   cast: TmdbCastMember[];
@@ -152,8 +164,8 @@ export interface TmdbEnrichedData {
 // ── Raw TMDB response shapes ────────────────────────────────────────────
 
 interface TmdbFindResult {
-  movie_results: { id: number }[];
-  tv_results: { id: number }[];
+  movie_results: { id: number; vote_average?: number }[];
+  tv_results: { id: number; vote_average?: number }[];
 }
 
 interface TmdbCreditRaw {
@@ -293,6 +305,19 @@ interface TmdbSeasonDetailRaw {
   }[];
 }
 
+interface TmdbDiscoverRaw {
+  id: number;
+  title?: string;
+  name?: string;
+  poster_path: string | null;
+  backdrop_path: string | null;
+  vote_average: number;
+  release_date?: string;
+  first_air_date?: string;
+  overview: string;
+  genre_ids: number[];
+}
+
 interface TmdbExternalIds {
   imdb_id?: string;
 }
@@ -360,6 +385,61 @@ class TmdbService {
     } catch {
       return null;
     }
+  }
+
+  // ── Rating lookup by IMDB ID (for search enrichment) ────────────────
+
+  async getRatingByImdbId(
+    imdbId: string,
+    type: "movie" | "series",
+  ): Promise<number> {
+    if (!this.isAvailable) return 0;
+
+    const cacheKey = `rating:${imdbId}`;
+    const entry = this.cache.get(cacheKey);
+    if (entry && Date.now() - entry.ts < TmdbService.CACHE_TTL) {
+      return entry.data as number;
+    }
+
+    try {
+      const res = await this.request<TmdbFindResult>(
+        `/find/${imdbId}?external_source=imdb_id`,
+      );
+
+      let rating = 0;
+      if (type === "movie" && res.movie_results.length > 0) {
+        rating = Math.round((res.movie_results[0].vote_average || 0) * 10) / 10;
+      } else if (type === "series" && res.tv_results.length > 0) {
+        rating = Math.round((res.tv_results[0].vote_average || 0) * 10) / 10;
+      }
+
+      this.cache.set(cacheKey, { data: rating, ts: Date.now() });
+      return rating;
+    } catch {
+      return 0;
+    }
+  }
+
+  /**
+   * Batch-enrich an array of items that are missing ratings.
+   * Fires lookups in parallel (max 10 at a time) and mutates the rating field.
+   */
+  async enrichRatings<T extends { id: string; type: "movie" | "series"; rating: number }>(
+    items: T[],
+  ): Promise<T[]> {
+    if (!this.isAvailable) return items;
+
+    const needRating = items.filter((i) => !i.rating || i.rating === 0);
+    if (needRating.length === 0) return items;
+
+    // Fire all lookups in parallel (TMDB find endpoint is lightweight)
+    const lookups = needRating.map(async (item) => {
+      const rating = await this.getRatingByImdbId(item.id, item.type);
+      if (rating > 0) item.rating = rating;
+    });
+
+    await Promise.allSettled(lookups);
+    return items;
   }
 
   // ── Generic cache helper ────────────────────────────────────────────
@@ -696,6 +776,151 @@ class TmdbService {
     } catch {
       return false;
     }
+  }
+
+  // ── Genre list ──────────────────────────────────────────────────────
+
+  async getGenres(
+    type: "movie" | "series",
+  ): Promise<{ id: number; name: string }[]> {
+    const endpoint =
+      type === "movie" ? "/genre/movie/list" : "/genre/tv/list";
+    return this.cached(`genres:${type}`, async () => {
+      const res = await this.request<{
+        genres: { id: number; name: string }[];
+      }>(endpoint);
+      return res.genres || [];
+    }).then((r) => r || []);
+  }
+
+  // ── Discover ────────────────────────────────────────────────────────
+
+  async discover(
+    type: "movie" | "series",
+    params: {
+      page?: number;
+      sortBy?: string;
+      genres?: number[];
+      yearGte?: number;
+      yearLte?: number;
+      ratingGte?: number;
+      ratingLte?: number;
+      language?: string;
+    } = {},
+  ): Promise<{ results: TmdbDiscoverItem[]; totalPages: number }> {
+    if (!this.isAvailable)
+      return { results: [], totalPages: 0 };
+
+    const endpoint = type === "movie" ? "/discover/movie" : "/discover/tv";
+
+    // TMDB uses different sort param names for movies vs TV
+    let sortParam = params.sortBy || "popularity.desc";
+    if (type !== "movie") {
+      if (sortParam.startsWith("primary_release_date")) {
+        sortParam = sortParam.replace("primary_release_date", "first_air_date");
+      } else if (sortParam.startsWith("revenue")) {
+        sortParam = "popularity.desc";
+      }
+    }
+
+    const qp = new URLSearchParams();
+    qp.set("sort_by", sortParam);
+    qp.set("page", String(params.page || 1));
+    qp.set("include_adult", "false");
+    qp.set("vote_count.gte", "50");
+
+    if (params.genres && params.genres.length > 0) {
+      qp.set("with_genres", params.genres.join(","));
+    }
+    if (params.ratingGte !== undefined) {
+      qp.set("vote_average.gte", String(params.ratingGte));
+    }
+    if (params.ratingLte !== undefined) {
+      qp.set("vote_average.lte", String(params.ratingLte));
+    }
+    if (params.language) {
+      qp.set("with_original_language", params.language);
+    }
+
+    if (type === "movie") {
+      if (params.yearGte) qp.set("primary_release_date.gte", `${params.yearGte}-01-01`);
+      if (params.yearLte) qp.set("primary_release_date.lte", `${params.yearLte}-12-31`);
+    } else {
+      if (params.yearGte) qp.set("first_air_date.gte", `${params.yearGte}-01-01`);
+      if (params.yearLte) qp.set("first_air_date.lte", `${params.yearLte}-12-31`);
+    }
+
+    const res = await this.request<{
+      results: TmdbDiscoverRaw[];
+      total_pages: number;
+    }>(`${endpoint}?${qp.toString()}`);
+
+    const results: TmdbDiscoverItem[] = (res.results || []).map((r) => ({
+      tmdbId: r.id,
+      title: r.title || r.name || "",
+      posterUrl: r.poster_path
+        ? `${TMDB_IMAGE_BASE}/w342${r.poster_path}`
+        : null,
+      backdropUrl: r.backdrop_path
+        ? `${TMDB_IMAGE_BASE}/w780${r.backdrop_path}`
+        : null,
+      rating: Math.round(r.vote_average * 10) / 10,
+      releaseDate: r.release_date || r.first_air_date || "",
+      type,
+      overview: r.overview || "",
+      genreIds: r.genre_ids || [],
+    }));
+
+    return { results, totalPages: res.total_pages || 0 };
+  }
+
+  // ── Trending ────────────────────────────────────────────────────────
+
+  async getTrending(
+    type: "movie" | "series",
+    timeWindow: "day" | "week" = "week",
+  ): Promise<TmdbDiscoverItem[]> {
+    if (!this.isAvailable) return [];
+    const mediaType = type === "movie" ? "movie" : "tv";
+    const res = await this.request<{
+      results: TmdbDiscoverRaw[];
+    }>(`/trending/${mediaType}/${timeWindow}`);
+
+    return (res.results || []).map((r) => ({
+      tmdbId: r.id,
+      title: r.title || r.name || "",
+      posterUrl: r.poster_path
+        ? `${TMDB_IMAGE_BASE}/w342${r.poster_path}`
+        : null,
+      backdropUrl: r.backdrop_path
+        ? `${TMDB_IMAGE_BASE}/w780${r.backdrop_path}`
+        : null,
+      rating: Math.round(r.vote_average * 10) / 10,
+      releaseDate: r.release_date || r.first_air_date || "",
+      type,
+      overview: r.overview || "",
+      genreIds: r.genre_ids || [],
+    }));
+  }
+
+  // ── For You — recommendation by genres ──────────────────────────────
+
+  async getRecommendationsByGenres(
+    type: "movie" | "series",
+    genreIds: number[],
+    _excludeIds?: Set<string>,
+    page: number = 1,
+  ): Promise<TmdbDiscoverItem[]> {
+    if (!this.isAvailable || genreIds.length === 0) return [];
+
+    const result = await this.discover(type, {
+      genres: genreIds.slice(0, 3),
+      sortBy: "vote_average.desc",
+      ratingGte: 7,
+      page,
+    });
+
+    return result.results;
   }
 
   /** Clear the in-memory cache */

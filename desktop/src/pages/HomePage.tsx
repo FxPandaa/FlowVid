@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo } from "react";
 import { HeroBanner, MediaRow, ContinueWatching } from "../components";
-import { cinemetaService, MediaItem } from "../services";
-import { useLibraryStore } from "../stores";
+import { cinemetaService, tmdbService, MediaItem, TmdbDiscoverItem } from "../services";
+import { useLibraryStore, useSettingsStore } from "../stores";
+import { ForYouRow } from "../components/ForYouRow";
 import "./HomePage.css";
 
 /**
@@ -30,6 +31,7 @@ export function HomePage() {
   const [isLoading, setIsLoading] = useState(!hasCachedData);
 
   const { watchHistory } = useLibraryStore();
+  const { showForYou } = useSettingsStore();
 
   // Build the top 10 featured items from popular movies + series
   const featuredItems = useMemo(() => {
@@ -100,28 +102,34 @@ export function HomePage() {
           />
         )}
 
+        <ForYouRow show={showForYou} />
+
         <MediaRow
           title="Popular Movies"
           items={popularMovies}
           isLoading={isLoading}
+          viewMoreLink="/browse/popular-movies"
         />
 
         <MediaRow
           title="Popular TV Shows"
           items={popularSeries}
           isLoading={isLoading}
+          viewMoreLink="/browse/popular-series"
         />
 
         <MediaRow
           title="Top Rated Movies"
           items={topRatedMovies}
           isLoading={isLoading}
+          viewMoreLink="/browse/top-movies"
         />
 
         <MediaRow
           title="Top Rated TV Shows"
           items={topRatedSeries}
           isLoading={isLoading}
+          viewMoreLink="/browse/top-series"
         />
       </div>
     </div>

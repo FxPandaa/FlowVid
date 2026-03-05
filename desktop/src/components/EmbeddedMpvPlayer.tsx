@@ -281,10 +281,18 @@ export function EmbeddedMpvPlayer({
           (updates: Partial<EmbeddedPlayerState>) => {
             if (!mounted) return;
 
-            setState((prev: EmbeddedPlayerState | null) => ({
-              ...(prev || embeddedMpvService.getState()),
-              ...updates,
-            }));
+            setState((prev: EmbeddedPlayerState | null) => {
+              const base = prev || embeddedMpvService.getState();
+              // When autoPlay is enabled and this is the first state
+              // initialisation (prev == null), assume playing so the UI
+              // shows the Pause icon immediately instead of briefly
+              // flashing the Play icon until MPV confirms playback.
+              if (!prev && autoPlay && updates.isPaused === undefined) {
+                base.isPaused = false;
+                base.isPlaying = true;
+              }
+              return { ...base, ...updates };
+            });
 
             // Check for EOF — guard against premature EOF from network stalls
             if (updates.eofReached === true) {

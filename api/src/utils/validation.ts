@@ -12,6 +12,7 @@ import { MediaType, QualityPreference } from "../types/index.js";
 
 export const registerSchema = z.object({
   email: z.string().email("Invalid email address").max(255),
+  username: z.string().min(2, "Username must be at least 2 characters").max(32, "Username too long").regex(/^[a-zA-Z0-9_.-]+$/, "Username can only contain letters, numbers, underscores, dots, and hyphens"),
   password: z
     .string()
     .min(8, "Password must be at least 8 characters")

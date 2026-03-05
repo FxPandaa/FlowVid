@@ -59,6 +59,7 @@ function createTables(database: Database.Database): void {
     CREATE TABLE IF NOT EXISTS users (
       id TEXT PRIMARY KEY,
       email TEXT UNIQUE NOT NULL,
+      username TEXT NOT NULL DEFAULT '',
       password_hash TEXT NOT NULL,
       created_at TEXT DEFAULT (datetime('now')),
       updated_at TEXT DEFAULT (datetime('now'))
@@ -275,6 +276,12 @@ function createTables(database: Database.Database): void {
   addProfileIdColumn("watch_history");
   addProfileIdColumn("collections");
   addProfileIdColumn("user_settings");
+
+  // Add username column to users table (migration for existing databases)
+  const userColumns = database.prepare("PRAGMA table_info(users)").all() as { name: string }[];
+  if (!userColumns.find((c) => c.name === "username")) {
+    database.exec(`ALTER TABLE users ADD COLUMN username TEXT NOT NULL DEFAULT ''`);
+  }
 
   // Composite indexes: created AFTER profile_id column is guaranteed to exist
   database.exec(`

@@ -398,59 +398,6 @@
   color: var(--text-tertiary);
 }
 
-.details-collections {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: var(--radius-lg);
-  padding: 20px;
-  margin-bottom: 28px;
-}
-
-.details-collections h4 {
-  font-size: 12px;
-  color: var(--text-tertiary);
-  margin-bottom: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.6px;
-  font-weight: 600;
-}
-
-.collections-checkboxes {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.collection-checkbox {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-  padding: 8px 10px;
-  background: rgba(255, 255, 255, 0.03);
-  border-radius: var(--radius-md);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  transition: background var(--transition-fast);
-}
-
-.collection-checkbox:hover {
-  background: rgba(255, 255, 255, 0.06);
-}
-
-.collection-checkbox input[type="checkbox"] {
-  cursor: pointer;
-}
-
-.collection-checkbox span {
-  font-size: 13px;
-}
-
-.collection-count {
-  color: var(--text-tertiary);
-  font-size: 12px;
-  margin-left: auto;
-}
-
 /* Cast */
 .details-cast {
   margin-bottom: 28px;

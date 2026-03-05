@@ -45,47 +45,222 @@
   gap: 14px;
   background: #000;
   z-index: 50;
+  overflow: hidden;
 }
 
-.player-loading-backdrop {
+/* ─── Fluid Aurora Loading Animation ─── */
+
+/* Container for the morphing colour blobs */
+.aurora-container {
+  position: absolute;
+  inset: -40%;           /* overflow so blobs are never cut at edges */
+  filter: blur(120px);
+  opacity: 0;
+  animation: auroraFadeIn 1.2s ease-out forwards;
+}
+
+.aurora-blob {
+  position: absolute;
+  border-radius: 50%;
+  mix-blend-mode: screen;
+}
+
+.aurora-blob-1 {
+  width: 55%;
+  height: 55%;
+  top: 10%;
+  left: -10%;
+  background: radial-gradient(circle, #0055dd 0%, #002277 40%, transparent 70%);
+  animation: auroraOrbit1 12s ease-in-out infinite;
+}
+
+.aurora-blob-2 {
+  width: 50%;
+  height: 50%;
+  bottom: 5%;
+  right: -5%;
+  background: radial-gradient(circle, #2277dd 0%, #003399 40%, transparent 70%);
+  animation: auroraOrbit2 15s ease-in-out infinite;
+}
+
+.aurora-blob-3 {
+  width: 45%;
+  height: 45%;
+  top: 30%;
+  right: 20%;
+  background: radial-gradient(circle, #0099cc 0%, #005588 40%, transparent 70%);
+  animation: auroraOrbit3 18s ease-in-out infinite;
+}
+
+.aurora-blob-4 {
+  width: 40%;
+  height: 40%;
+  bottom: 20%;
+  left: 25%;
+  background: radial-gradient(circle, #3366aa 0%, #001a44 40%, transparent 70%);
+  animation: auroraOrbit4 14s ease-in-out infinite;
+}
+
+@keyframes auroraOrbit1 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33%      { transform: translate(15%, 10%) scale(1.06); }
+  66%      { transform: translate(-8%, 18%) scale(0.95); }
+}
+
+@keyframes auroraOrbit2 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33%      { transform: translate(-12%, -15%) scale(1.05); }
+  66%      { transform: translate(10%, -8%) scale(0.92); }
+}
+
+@keyframes auroraOrbit3 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50%      { transform: translate(-18%, 10%) scale(1.08); }
+}
+
+@keyframes auroraOrbit4 {
+  0%, 100% { transform: translate(0, 0) scale(0.95); }
+  50%      { transform: translate(12%, -12%) scale(1.06); }
+}
+
+@keyframes auroraFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 0.35; }
+}
+
+/* Movie poster that breathes in and out */
+.aurora-poster-wrap {
   position: absolute;
   inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  animation: posterBreathe 6s ease-in-out infinite;
+  mask-image: radial-gradient(ellipse 55% 60% at 50% 50%, black 20%, transparent 65%);
+  -webkit-mask-image: radial-gradient(ellipse 55% 60% at 50% 50%, black 20%, transparent 65%);
+}
+
+.aurora-poster {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  opacity: 0.35;
-  pointer-events: none;
-  filter: blur(4px);
+  filter: saturate(0.4) brightness(0.55);
 }
 
-.player-loading-logo {
+@keyframes posterBreathe {
+  0%, 100% {
+    opacity: 0.15;
+    mask-size: 100% 100%;
+    -webkit-mask-size: 100% 100%;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.35;
+    mask-size: 110% 110%;
+    -webkit-mask-size: 110% 110%;
+    transform: scale(1.015);
+  }
+}
+
+/* Floating light particles */
+.aurora-particles {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.aurora-particle {
+  position: absolute;
+  width: var(--s);
+  height: var(--s);
+  left: var(--x);
+  top: var(--y);
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(100, 170, 255, 0.6), transparent 70%);
+  animation: particleFloat var(--d) ease-in-out infinite;
+  animation-delay: calc(var(--i) * -0.5s);
+  opacity: 0;
+}
+
+@keyframes particleFloat {
+  0%, 100% {
+    transform: translateY(0) translateX(0) scale(0);
+    opacity: 0;
+  }
+  25% {
+    opacity: 0.45;
+    transform: translateY(-12px) translateX(6px) scale(1);
+  }
+  50% {
+    opacity: 0.25;
+    transform: translateY(-30px) translateX(-8px) scale(0.7);
+  }
+  75% {
+    opacity: 0.1;
+    transform: translateY(-50px) translateX(3px) scale(0.3);
+  }
+}
+
+/* Logo / Title over the aurora */
+.aurora-title-wrap {
   position: relative;
-  max-width: min(320px, 50vw);
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+
+.aurora-logo {
+  max-width: min(340px, 50vw);
   max-height: 120px;
   object-fit: contain;
-  animation: logoFadeInOut 2s ease-in-out infinite;
-  z-index: 1;
+  filter: drop-shadow(0 0 20px rgba(0, 80, 200, 0.25));
+  animation: logoGlow 4s ease-in-out infinite;
 }
 
-.player-loading-title {
-  position: relative;
+.aurora-title {
   color: rgba(255, 255, 255, 0.85);
   font-size: 20px;
   font-weight: 600;
   letter-spacing: 0.5px;
-  animation: logoFadeInOut 2s ease-in-out infinite;
-  z-index: 1;
+  text-shadow: 0 0 20px rgba(0, 80, 200, 0.3);
+  animation: logoGlow 4s ease-in-out infinite;
 }
 
-@keyframes logoFadeInOut {
-  0%   { opacity: 0.2; }
-  50%  { opacity: 1; }
-  100% { opacity: 0.2; }
+@keyframes logoGlow {
+  0%, 100% {
+    filter: drop-shadow(0 0 15px rgba(0, 80, 200, 0.2));
+    opacity: 0.2;
+  }
+  50% {
+    filter: drop-shadow(0 0 25px rgba(40, 120, 220, 0.35));
+    opacity: 1;
+  }
 }
 
-.player-loading p {
-  color: var(--text-tertiary);
-  font-size: 13px;
+/* Thin animated progress bar under the logo */
+.aurora-loader-bar {
+  width: 120px;
+  height: 2px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.aurora-loader-fill {
+  height: 100%;
+  width: 40%;
+  border-radius: 2px;
+  background: linear-gradient(90deg, transparent, #4488ff, #00ccff, transparent);
+  animation: loaderSlide 1.5s ease-in-out infinite;
+}
+
+@keyframes loaderSlide {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(400%); }
 }
 
 .player-error .error-icon {
